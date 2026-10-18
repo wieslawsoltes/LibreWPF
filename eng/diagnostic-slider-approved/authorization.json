@@ -4,10 +4,11 @@
   "scope": "hosted-linux-slider-281-and-owned-overview-once",
   "candidateSha256": "72af407f78992bac58fae546849188c1e3cce46e797bbb014de9a72245ade98c",
   "scripts": {
-    "authorization.py": "4830a0d65709b8c6f504465c122d64fb825bc0d1d2c061542b20203ba844aabc",
+    "authorization.py": "7d0989376f1bc0e0c6c22a60680c314e82f06b7edfb3dc957eb7c3448c64c5ba",
     "owned_overview.py": "5f67c6d766eeaa2624149acac07b7bcb1fbba6d0cbb2ca0509ac17d95f9f9313",
-    "run-input.py": "8553718885213f5c6a79e9aa89c37642028f3be747eebaf1564d16b4d09809b1",
-    "desktop-input.py": "9fa5213d1a0178466c2b45392bb79eaa3939d12638dd002f2172492809779a80"
+    "run-input.py": "091ce6d11a83db095bf3d7f0e8ab83e06b50d3f381d533c140db6375b25fea31",
+    "desktop-input.py": "9fa5213d1a0178466c2b45392bb79eaa3939d12638dd002f2172492809779a80",
+    "slider-native-input.py": "1291f845c914b3c8f62798d7ace0ccab2a8447f3815bad84c8a4d018bf73cb4c"
   },
   "questionItemId": "[\"request_user_input_async\",\"call_e25d4c07ebcb417ea950441b6cd46f8b\",0]",
   "recordedUtc": "2026-10-18T07:28:41.168077+00:00",
@@ -17,5 +18,22 @@
     "run-input.py": "8553718885213f5c6a79e9aa89c37642028f3be747eebaf1564d16b4d09809b1",
     "desktop-input.py": "13ffa7369b1695a22072c97a7ff3b5daf11217e5f2696d0f8c192b1abb46c1dd"
   },
-  "readinessCorrection": "Read-only startup-complete observation before Overview query. Same five-second deadline, candidate, single public Set, native input driver and all guards. Original run39106597661 remains failed before input."
+  "readinessCorrection": "Read-only startup-complete observation before Overview query. Same five-second deadline, candidate, single public Set, native input driver and all guards. Original run39106597661 remains failed before input.",
+  "releaseObservation": {
+    "approved": true,
+    "maxSeconds": 0.25,
+    "maxReads": 26,
+    "additionalInputActions": 0,
+    "humanReply": "Allow bounded release observation (Recommended)",
+    "questionItemId": "[\"request_user_input_async\",\"call_f9522551a7fe402bbcab1b4dd1a31176\",0]",
+    "recordedUtc": "2026-10-18T10:29:48.883850+00:00",
+    "originalFailureRetained": 39107838155,
+    "decisionSha256": "5dc264e48e2a88df752e944bcac4290938170d9743063802a5b305f9da2ee8de"
+  },
+  "previousScripts": {
+    "authorization.py": "4830a0d65709b8c6f504465c122d64fb825bc0d1d2c061542b20203ba844aabc",
+    "owned_overview.py": "5f67c6d766eeaa2624149acac07b7bcb1fbba6d0cbb2ca0509ac17d95f9f9313",
+    "run-input.py": "8553718885213f5c6a79e9aa89c37642028f3be747eebaf1564d16b4d09809b1",
+    "desktop-input.py": "9fa5213d1a0178466c2b45392bb79eaa3939d12638dd002f2172492809779a80"
+  }
 }

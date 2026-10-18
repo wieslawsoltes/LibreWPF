@@ -43,7 +43,11 @@ def inspection_source(archive):
     # Every original input guard remains; the hosted controller requires separate approval.
     before = 'assert len(manifest) == 267 and runner[\'deadlineSeconds\'] == 180'
     assert original.count(before) == 1
-    return original, original.replace(before, before.replace('267', '281'))
+    adapted = original.replace(before, before.replace('267', '281'))
+    assert digest(adapted.encode()) == '92af56e65e0258925a7e91cc603b21dc69d69de0770bcb4e966eff310ecac30b'
+    proposed = (Path(__file__).parent/'slider-native-input.py').read_text()
+    assert digest(proposed.encode()) == '1291f845c914b3c8f62798d7ace0ccab2a8447f3815bad84c8a4d018bf73cb4c'
+    return original, proposed
 
 
 def validate_source_values(ready, events, final):
@@ -91,7 +95,7 @@ def run_case(environment, case):
         deadlineSeconds=180, applicationReserveSeconds=170, inputReserveEndsAtSeconds=160,
         archiveSha256=ARCHIVE_SHA, producer=receipt['producer'], manifestFiles=281,
         originalInspectorSha256=digest(original.encode()), inspectorSha256=digest(inspector.encode()),
-        inspectorChanges=['Actual reviewed inventory count:267 to281'], desktop=desktop)
+        inspectorChanges=['Actual reviewed inventory count:267 to281', 'Approved <=250ms read-only release observation; no extra input'], desktop=desktop)
     runner = evidence/'runner.json'
     child = None
     started = time.monotonic()

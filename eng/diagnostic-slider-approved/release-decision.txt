@@ -1,0 +1,37 @@
+Prepared hosted Linux Slider release-observation change — approval pending
+
+Original run39107838155 failed its immediate native post-release guard after
+the second drag: XQueryPointer still reported left-button-held after the one
+approved release request and XSync. No other X11 errors were recorded. The
+application later recorded both uncanceled completions, values50 and750, and
+released capture. The four-control run remains failed. Artifact12129740132,
+SHA256785193dbf3c95daf458e43cda1aa8fe8503c14fcbeaa2ba5c85ad50f8a4bdf7a,
+retains all original observations, source events and the initial capture.
+
+Proposal
+After each original left-button release, permit up to250milliseconds of
+read-only observation, at most26 reads, inside the existing15-second input
+alarm and180-second controller. Every read rechecks the original executable,
+process start identity, window PID, active window, focus, fixed geometry,
+physical-key idle state, exact pointer position and actual owned-client target.
+Only the already-pressed left button may remain pending. Any other held button,
+modifier or failed ownership guard fails immediately. Require a fully released
+native state before any next gesture. No extra input action, forced focus,
+repeated release, modified drag, application change or timeout extension.
+Preserve the original first observation, including whether its immediate guard
+would have failed, and every subsequent read. Fail at the original deadline.
+
+The existing281-file candidate, four original drags,52 motions,8 button edges,
+single owned-overview close, captures and all source assertions remain intact.
+The prepared full driver and exact diff are beside this decision. Seven offline
+controls pass for immediate/delayed release, lock modifiers, other-button and
+modifier rejection, ownership failure, the250ms deadline and a slow last read.
+AST checks retain every original native input call and the original15-second
+alarm. No proposed native input has been executed. Local VMs remain untouched.
+
+Why approval is needed
+The approved decision in ../input-proposal/decision.txt states: “Every original
+native guard remains” and “Abort on rejection”. This proposal changes when one
+post-release guard can be satisfied, so it needs an explicit exception to that
+immediate-observation rule. It does not qualify the original failed run or waive
+the full slider/application release gates.
