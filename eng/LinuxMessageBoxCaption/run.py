@@ -84,7 +84,29 @@ def run_case(environment, case):
                 handle = ready['nativeHandle']
                 properties = command(['xprop', '-id', str(handle), '_NET_WM_PID', '_MOTIF_WM_HINTS',
                                       '_NET_FRAME_EXTENTS', '_NET_WM_ALLOWED_ACTIONS', 'WM_TRANSIENT_FOR', '_NET_WM_NAME'])
-                hints = validate_chrome(properties, child.pid)
+                try:
+                    hints = validate_chrome(properties, child.pid)
+                except ValueError as admission_error:
+                    # Keep the original rejection. An owned-client image explains
+                    # source-drawn chrome; it never substitutes for a native frame.
+                    record['captionAdmissionFailure'] = str(admission_error)
+                    try:
+                        if value(properties, '_NET_WM_PID', 1) != [child.pid]:
+                            raise ValueError('Foreign rejected client PID')
+                        target = output / f'{index}-rejected-owned-client.png'
+                        command(['import', '-window', str(handle), str(target)], limit=10)
+                        data = target.read_bytes()
+                        if not data.startswith(b'\x89PNG\r\n\x1a\n') or len(data) > 8 * 1024 * 1024:
+                            raise ValueError('Invalid rejected client capture')
+                        after = command(['xprop', '-id', str(handle), '_NET_WM_PID'])
+                        if value(after, '_NET_WM_PID', 1) != [child.pid] or child.poll() is not None:
+                            raise ValueError('Rejected client ownership changed during capture')
+                        record['rejectedOwnedClient'] = dict(source=ready, properties=properties,
+                            kind='client-only-diagnostic', qualified=False, file=target.name,
+                            bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
+                    except Exception as capture_error:
+                        record['rejectedClientCaptureError'] = type(capture_error).__name__ + ': ' + str(capture_error)
+                    raise
                 transient = re.search(r'WM_TRANSIENT_FOR\(WINDOW\): window id # (0x[0-9a-fA-F]+)', properties)
                 if not transient or int(transient[1], 16) != ready['ownerHandle']:
                     raise ValueError('Actual transient owner differs from original source owner')
