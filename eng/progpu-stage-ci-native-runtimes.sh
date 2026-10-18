@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 && $# -ne 3 ]]; then
-  echo "usage: $0 <ProGPU commit> <runtime staging directory> [DX12 staging directory]" >&2
+if [[ $# -lt 2 || $# -gt 4 ]]; then
+  echo "usage: $0 <ProGPU commit> <runtime staging directory> [DX12 staging directory] [Xlib staging directory]" >&2
   exit 2
 fi
 
 progpu_commit="$1"
 runtime_stage="$2"
 dx12_stage="${3:-}"
+xlib_stage="${4:-}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 progpu_repository="${PROGPU_CI_REPOSITORY:-wieslawsoltes/ProGPU}"
 poll_seconds="${PROGPU_CI_POLL_SECONDS:-20}"
@@ -134,6 +135,10 @@ stage_arguments=("${native_package}" "${sdk_package}" "${runtime_stage}"
 if [[ -n "${dx12_stage:-}" ]]; then
   stage_arguments+=(--dx12-package "${native_package%/*}/ProGPU.Backend.Dx12.${package_version}.nupkg"
     --dx12-destination "${dx12_stage}")
+fi
+if [[ -n "${xlib_stage:-}" ]]; then
+  stage_arguments+=(--xlib-package "${native_package%/*}/ProGPU.Backend.${package_version}.nupkg"
+    --xlib-destination "${xlib_stage}")
 fi
 python3 "${script_dir}/progpu-stage-release-native-packages.py" "${stage_arguments[@]}"
 

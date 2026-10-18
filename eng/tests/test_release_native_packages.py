@@ -2,9 +2,12 @@
 """Package extraction/provenance controls; fixtures are not native qualification."""
 
 import importlib.util
+import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 import unittest
 import zipfile
@@ -98,11 +101,69 @@ class ReleaseNativePackagesTests(unittest.TestCase):
             self.assertFalse(self.destination.exists())
             self.assertFalse((self.root / "escaped").exists())
 
+    def xlib_entries(self):
+        entries = []
+        for rid, machine in (("linux-x64", 62), ("linux-arm64", 183)):
+            header = bytearray(64)
+            header[:7] = b"\x7fELF\x02\x01\x01"
+            struct.pack_into("<HH", header, 16, 3, machine)
+            payload = {"libwgpu_native.so": bytes(header), "LICENSE.MIT": b"notice",
+                       "LICENSE.APACHE": b"notice", "wgpu-LICENSE.MIT": b"notice",
+                       "wgpu-LICENSE.APACHE": b"notice", "webgpu-headers-LICENSE": b"header notice"}
+            receipt = {"schemaVersion": 1, "rid": rid, "producerCommit": COMMIT,
+                       "abiTestsPassed": True, "extensionExported": "progpuWgpuCreateInstanceXlibV1",
+                       "inputs": {"extension": "progpuWgpuCreateInstanceXlibV1",
+                                  "backendAbi": "PROGPU_NATIVE_BACKEND_ABI_WGPU_NATIVE_2024_05"},
+                       "files": {name: hashlib.sha256(data).hexdigest() for name, data in payload.items()}}
+            payload["wgpu-native-linux.json"] = json.dumps(receipt).encode()
+            entries.extend((f"runtimes/{rid}/native/{name}", data) for name, data in payload.items())
+        return entries
+
+    def test_xlib_preserves_both_architectures_and_extensionless_notices(self):
+        entries = self.xlib_entries()
+        package = self.package(package_id="ProGPU.Backend", entries=entries)
+        self.assertEqual(14, STAGING.stage_xlib(package, self.destination, VERSION, COMMIT))
+        for name, data in entries:
+            self.assertEqual(data, (self.destination / name.removeprefix("runtimes/")).read_bytes())
+
+    def test_xlib_rejects_partial_or_unexpected_inventory_before_publication(self):
+        entries = self.xlib_entries()
+        for changed in (entries[:-1], entries + [("runtimes/linux-x64/native/extra.so", b"unexpected")],
+                        [(name.replace("webgpu-headers-LICENSE", "webgpu-headers-LICENSE/webgpu-headers-LICENSE"), data)
+                         for name, data in entries]):
+            with self.subTest(changed=len(changed)), self.assertRaisesRegex(ValueError, "inventories"):
+                package = self.package(package_id="ProGPU.Backend", entries=changed)
+                STAGING.stage_xlib(package, self.destination, VERSION, COMMIT)
+            self.assertFalse(self.destination.exists())
+
+    def test_xlib_rejects_changed_library_or_notice_before_publication(self):
+        for suffix in ("libwgpu_native.so", "webgpu-headers-LICENSE"):
+            entries = [(name, data + b"changed" if name.endswith(suffix) else data)
+                       for name, data in self.xlib_entries()]
+            package = self.package(package_id="ProGPU.Backend", entries=entries)
+            with self.assertRaisesRegex(ValueError, "byte mismatch"):
+                STAGING.stage_xlib(package, self.destination, VERSION, COMMIT)
+            self.assertFalse(self.destination.exists())
+
+    def test_xlib_rejects_changed_producer_or_dependency_receipt(self):
+        for key, value in (("producerCommit", "b" * 40), ("rid", "linux-x64"),
+                           ("abiTestsPassed", False), ("extensionExported", "different"),
+                           ("inputs", {"extension": "different"})):
+            entries = []
+            for name, data in self.xlib_entries():
+                if name == "runtimes/linux-arm64/native/wgpu-native-linux.json":
+                    receipt = json.loads(data);receipt[key] = value;data = json.dumps(receipt).encode()
+                entries.append((name, data))
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                package = self.package(package_id="ProGPU.Backend", entries=entries)
+                STAGING.stage_xlib(package, self.destination, VERSION, COMMIT)
+            self.assertFalse(self.destination.exists())
+
 
 class CiNativePackageSelectionTests(unittest.TestCase):
     """Run the actual CI selection block with an argument-only extraction stub."""
 
-    def select(self, versions=(VERSION,), status=0, dx12=False):
+    def select(self, versions=(VERSION,), status=0, dx12=False, xlib=False):
         with tempfile.TemporaryDirectory(prefix="ci-native-selection-") as temporary:
             root = Path(temporary)
             artifacts = root / "artifact"
@@ -118,6 +179,8 @@ class CiNativePackageSelectionTests(unittest.TestCase):
                                progpu_commit=COMMIT, RECEIPT=str(receipt), STAGE_STATUS=str(status))
             if dx12:
                 environment["dx12_stage"] = str(root / "compiler")
+            if xlib:
+                environment["xlib_stage"] = str(root / "xlib")
             script = '''set -euo pipefail
 python3() { printf '%s\\n' "$@" > "$RECEIPT"; return "$STAGE_STATUS"; }
 ''' + block
@@ -148,6 +211,12 @@ python3() { printf '%s\\n' "$@" > "$RECEIPT"; return "$STAGE_STATUS"; }
     def test_failed_pair_extraction_stops_ci_staging(self):
         status, _, _ = self.select(status=23)
         self.assertEqual(status, 23)
+
+    def test_optional_xlib_uses_the_same_successful_producer_version(self):
+        status, arguments, root = self.select(dx12=True, xlib=True)
+        self.assertEqual(0, status)
+        self.assertEqual(["--xlib-package", str(root / f"artifact/ProGPU.Backend.{VERSION}.nupkg"),
+                          "--xlib-destination", str(root / "xlib")], arguments[-4:])
 
 
 if __name__ == "__main__":
