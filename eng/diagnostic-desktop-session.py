@@ -67,6 +67,19 @@ try:
                 except (FileNotFoundError,ProcessLookupError,PermissionError):
                     pass
         record['ownedDescendants'] = details
+        xwaylands=[(pid,args) for pid,args in details.items() if args and pathlib.Path(args[0]).name=='Xwayland']
+        assert len(xwaylands)==1,'Require exactly one owned Xwayland'
+        xpid,xargs=xwaylands[0]
+        assert pathlib.Path('/proc',str(xpid)).exists() and re.fullmatch(r':\d+',xargs[1])
+        auth=pathlib.Path(xargs[xargs.index('-auth')+1]).resolve()
+        assert auth.is_relative_to((root/'runtime').resolve()) and auth.is_file()
+        environment.update(DISPLAY=xargs[1],WAYLAND_DISPLAY='progpu-owned-wayland',XAUTHORITY=str(auth))
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('original_multi_window',pathlib.Path('eng/diagnostic-run-multi-window.py'))
+        runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+        record['applicationExecuted']=True
+        result=runner.run_case(environment,'mixed-wayland-x11')
+        record['applicationPassed']=result['passed']
         record['completed'] = True
         child.terminate()
         try: child.wait(timeout=3)
