@@ -40,6 +40,13 @@ the full candidate before publication and never overwrite a consumer or cache.
 The helper does not advance a pin or qualify a partial producer. See
 docs/linux-runtime-staging.md; original source application gates remain required.
 
+Source host tests opt into the actual staged native payload at their executable
+boundary. Preserve explicit root ownership, portable/RID loader layouts, original
+notices, SDK exclusion and repeated-import guards. Libraries and package consumers
+retain their separate policies. Only the exact whole-qualified producer supplies
+these files; asset controls do not qualify source/native application behavior.
+See docs/linux-runtime-staging.md.
+
 Passive Showcase completion queues Application.Shutdown with the original result
 on the source owner dispatcher after persisting its receipt. Never call worker
 Environment.Exit while the native host is pumping: process-exit HWND detachment

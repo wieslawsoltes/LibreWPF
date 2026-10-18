@@ -61,3 +61,19 @@ runtime archives match their GitHub digests and pass the staging helper's exact
 producer, dependency, ELF, license and byte validation. All 56 source-asset
 evaluations pass with these files. This qualifies the selected producer and
 asset selection; it does not qualify the final LibreWPF package application.
+
+The subsequent source pin is the whole-qualified `905d52ac185278db60c312a709cf5aa045772dd5`
+producer (all 61 Build jobs and 76 head checks), which also supplies native Close
+enabled state. Its real Native/SDK, DX12 and Xlib payloads are staged together.
+The host test executable additionally opts into `eng/LibreWPF.NativeRuntime.targets`:
+ordinary project references package native libraries but do not copy them into a
+source test output. The original full-suite run retained 43 missing-native-library
+failures. The explicit test boundary now carries the original staged runtimes and
+notices, excludes SDK archives, and retains portable versus RID-specific loader
+layout. It does not alter library outputs or package-mode resolution.
+
+All 32 real-payload selection controls pass for both source-root separators,
+explicit runtime override, duplicate imports, executable/test admission, library
+and disabled opt-outs, three actual RIDs and an unavailable RID. They compare
+complete original file hashes and output/publish metadata. Native execution and
+final application acceptance remain separate from these asset controls.

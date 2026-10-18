@@ -735,6 +735,9 @@ jobs:
       - name: Validate source application Linux runtime assets
         run: python3 eng/tests/test_xlib_source_assets.py --runtime-root external/ProGPU/artifacts/progpu-xlib/package
 
+      - name: Validate source test native runtime assets
+        run: python3 eng/tests/test_native_source_assets.py
+
       - name: Run headless multi-window smoke
         run: ./eng/progpu-wpf-linux-multi-window-smoke.sh
 

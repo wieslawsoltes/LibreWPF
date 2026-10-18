@@ -101,6 +101,26 @@ requires a matching rebuilt ProGPU producer; the older public package pin does
 not gain this API through source-only checks. Native Windows/macOS button state,
 X11 hint handling, and complete desktop/package acceptance remain separate gates.
 
+The source now pins the whole-qualified ProGPU commit
+`905d52ac185278db60c312a709cf5aa045772dd5`, merged in
+[PR398](https://github.com/wieslawsoltes/ProGPU/pull/398). Its
+[Build39138606765](https://github.com/wieslawsoltes/ProGPU/actions/runs/39138606765)
+passes all 61 jobs and all 76 head checks, including the original Windows Close
+control and all three X11 popup/property tests. Real Native, SDK, DX12 and Xlib
+payloads come from that exact successful build; the package archive SHA-256 is
+`65fc506443697bb999cc3d4135f05a7b829bf09698cab8fa71b18ad138cf519d`.
+This qualifies the producer and source dependency update, while the combined
+LibreWPF consumer and final application/package acceptance remain independent.
+
+The combined source candidate passes all 18 modal/caption tests and all 2,881
+host tests with no skips against this pin. The actual seven producer/Interop
+assemblies match their source outputs, and all 98 native runtime/notice files
+match the qualified payload. The broader host run first exposed missing native
+output assets and three stale expectations (macOS file-dialog selection, the
+captured popup-window local, and the expanded Windows Close test filter). Those
+failures remain retained; the source asset import and corrected exact assertions
+pass the complete suite. This does not substitute for desktop input acceptance.
+
 The portable MessageBox previously initialized its close result to the default
 button when no Cancel response existed. That let a Yes/No window close as Yes
 without a response selection. The source now keeps cancellation separate from
