@@ -1,3 +1,10 @@
+Optional source Xlib runtime staging uses the same exact whole successful ProGPU
+producer as native/SDK and DX12 payloads. Preserve both architecture inventories,
+source/dependency receipts, original hashes and extensionless licenses; validate
+the full candidate before publication and never overwrite a consumer or cache.
+The helper does not advance a pin or qualify a partial producer. See
+docs/linux-runtime-staging.md; original source application gates remain required.
+
 Passive Showcase completion queues Application.Shutdown with the original result
 on the source owner dispatcher after persisting its receipt. Never call worker
 Environment.Exit while the native host is pumping: process-exit HWND detachment
