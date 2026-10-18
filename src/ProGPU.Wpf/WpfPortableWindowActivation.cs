@@ -195,6 +195,8 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             ReleaseDialog = (activation, completed) => ((WpfPortableWindowActivation)activation).Host.ReleaseNativeDialog(completed),
             SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner),
             GetFrameInsets = activation => ((WpfPortableWindowActivation)activation).Host.GetLogicalNativeFrameInsets(),
+            RequiresSourceFixedCaption = activation =>
+                ((WpfPortableWindowActivation)activation).Host.NativeWindowHandle.Kind == NativeWindowKind.X11,
             SetWin32TaskbarVisibility = OperatingSystem.IsWindows()
                 ? (activation, visible) => ((WpfPortableWindowActivation)activation).Host.SetWin32TaskbarVisibility(visible)
                 : null

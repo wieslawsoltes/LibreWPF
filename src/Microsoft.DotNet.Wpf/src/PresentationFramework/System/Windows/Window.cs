@@ -29,7 +29,7 @@ using Win32Error = MS.Internal.Interop.Win32Error;
 namespace System.Windows
 {
     [Localizability(LocalizationCategory.Ignore)]
-    public class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource, IPortableWindowLocationSink, IPortableAccessKeyScopeSource, IPortableWindowFrameLayout
+    public partial class Window : ContentControl, IWindowService, IPortableVisualOwnerHost, IPortableWindowStateSource, IPortableWindowLocationSink, IPortableAccessKeyScopeSource, IPortableWindowFrameLayout
     {
         //---------------------------------------------------
         //
@@ -2059,15 +2059,21 @@ namespace System.Windows
                 return arrangeBounds;
             }
 
+            Size nativeFrame = GetWindowFrameSizeInMeasureUnits();
+            double captionHeight = ArrangePortableFixedCaption(new Size(
+                Math.Max(0, arrangeBounds.Width - nativeFrame.Width),
+                Math.Max(0, arrangeBounds.Height - nativeFrame.Height)));
+
             if (this.VisualChildrenCount > 0)
             {
                 UIElement child = this.GetVisualChild(0) as UIElement;
+                if (ReferenceEquals(child, _portableFixedCaption)) child = null;
                 if (child != null)
                 {
                     // Find out the size of the window frame x.
                     // (constraint - x) is the size we pass onto
                     // our child
-                    Size frameSize = GetWindowFrameSizeInMeasureUnits();
+                    Size frameSize = nativeFrame;
 
                     // In some instances (constraint size - frame size) can be negative. One instance
                     // is when window is set to minimized before layout has happened.  Apparently, Win32
@@ -2081,10 +2087,10 @@ namespace System.Windows
                     Size childArrangeBounds = new Size
                     {
                         Width = Math.Max(0.0, arrangeBounds.Width - frameSize.Width),
-                        Height = Math.Max(0.0, arrangeBounds.Height - frameSize.Height)
+                        Height = Math.Max(0.0, arrangeBounds.Height - frameSize.Height - captionHeight)
                     };
 
-                    child.Arrange(new Rect(childArrangeBounds));
+                    child.Arrange(new Rect(new Point(0, captionHeight), childArrangeBounds));
 
                     // Windows OS bug # 928719, 953458
                     // The default impl of FlowDirection is that it adds a transform on the element
@@ -3674,9 +3680,12 @@ namespace System.Windows
                 return new Size(0,0);
             }
 
+            Size captionSize = MeasurePortableFixedCaption(constraint);
+
             if (this.VisualChildrenCount > 0)
             {
                 UIElement child = this.GetVisualChild(0) as UIElement;
+                if (ReferenceEquals(child, _portableFixedCaption)) child = null;
                 if (child != null) // UIElement children
                 {
                     // Find out the size of the window frame x.
@@ -3696,12 +3705,13 @@ namespace System.Windows
                     Size childConstraint = new Size
                     {
                         Width = ((constraint.Width == Double.PositiveInfinity) ? Double.PositiveInfinity : Math.Max(0.0, (constraint.Width - frameSize.Width))),
-                        Height = ((constraint.Height == Double.PositiveInfinity) ? Double.PositiveInfinity : Math.Max(0.0, (constraint.Height - frameSize.Height)))
+                        Height = ((constraint.Height == Double.PositiveInfinity) ? Double.PositiveInfinity : Math.Max(0.0, (constraint.Height - frameSize.Height - captionSize.Height)))
                     };
 
                     child.Measure(childConstraint);
                     Size childDesiredSize = child.DesiredSize;
-                    return new Size(childDesiredSize.Width + frameSize.Width, childDesiredSize.Height + frameSize.Height);
+                    return new Size(Math.Max(childDesiredSize.Width, captionSize.Width) + frameSize.Width,
+                        childDesiredSize.Height + frameSize.Height + captionSize.Height);
                 }
             }
 
@@ -5721,6 +5731,8 @@ namespace System.Windows
         {
             if (IsPortableWindowActive)
             {
+                UpdatePortableFixedCaption();
+                if (!IsPortableWindowActive) return;
                 PortableWindowActivationService.SetWindowBorder(_portableWindowActivation, ResizeMode, GetPortableWindowStyle());
                 return;
             }
@@ -6766,6 +6778,8 @@ namespace System.Windows
 
             if (IsPortableWindowActive)
             {
+                UpdatePortableFixedCaption();
+                if (!IsPortableWindowActive) return;
                 PortableWindowActivationService.SetWindowBorder(_portableWindowActivation, ResizeMode, GetPortableWindowStyle());
                 return;
             }
@@ -7423,6 +7437,7 @@ namespace System.Windows
             }
 
             _hasPortableCustomChrome = enabled;
+            UpdatePortableFixedCaption();
             if (_portableWindowActivation != null)
             {
                 PortableWindowActivationService.SetWindowBorder(
@@ -7448,7 +7463,7 @@ namespace System.Windows
 
         private WindowStyle GetPortableWindowStyle()
         {
-            return _hasPortableCustomChrome ? WindowStyle.None : WindowStyle;
+            return _hasPortableCustomChrome || _portableFixedCaption != null ? WindowStyle.None : WindowStyle;
         }
 
         private bool IsLayoutSourceUnavailable
@@ -7681,6 +7696,9 @@ namespace System.Windows
 
             _portableWindowActivation = activation;
             SetIWindowService();
+            UpdatePortableFixedCaption();
+            if (!ReferenceEquals(_portableWindowActivation, activation))
+                throw new InvalidOperationException("The portable window retired while preparing its caption.");
 
             // WindowChrome (via the WindowChromeWorker attached property, applied through a Style
             // Setter) can call SetPortableCustomChrome before this window's portable activation
@@ -7691,7 +7709,7 @@ namespace System.Windows
             // window is left with its native chrome/title bar showing even though custom chrome (e.g.
             // AvalonDock's floating window caption) was requested. Now that activation exists, sync
             // the border state for real if custom chrome was already requested.
-            if (_hasPortableCustomChrome)
+            if (_hasPortableCustomChrome || _portableFixedCaption != null)
             {
                 PortableWindowActivationService.SetWindowBorder(
                     _portableWindowActivation,

@@ -41,6 +41,7 @@ namespace System.Windows
         private static Func<object, bool> _requestActivation;
         private static Func<object, double, double, bool> _showSystemMenu;
         private static Func<object, PortableWindowFrameInsets?> _getFrameInsets;
+        private static Func<object, bool> _requiresSourceFixedCaption;
 
         internal static bool IsEnabled
         {
@@ -112,7 +113,8 @@ namespace System.Windows
             Action<object, object> setOwner = null,
             Action<object, Action> releaseDialog = null,
             Func<object, PortableWindowFrameInsets?> getFrameInsets = null,
-            Action<object, bool> setWin32TaskbarVisibility = null)
+            Action<object, bool> setWin32TaskbarVisibility = null,
+            Func<object, bool> requiresSourceFixedCaption = null)
         {
             ArgumentNullException.ThrowIfNull(activate);
 
@@ -139,6 +141,7 @@ namespace System.Windows
             Volatile.Write(ref _createHidden, createHidden);
             Volatile.Write(ref _showSystemMenu, showSystemMenu);
             Volatile.Write(ref _getFrameInsets, getFrameInsets);
+            Volatile.Write(ref _requiresSourceFixedCaption, requiresSourceFixedCaption);
             Volatile.Write(ref _activate, activate);
         }
 
@@ -148,6 +151,7 @@ namespace System.Windows
             Volatile.Write(ref _createHidden, null);
             Volatile.Write(ref _showSystemMenu, null);
             Volatile.Write(ref _getFrameInsets, null);
+            Volatile.Write(ref _requiresSourceFixedCaption, null);
             Volatile.Write(ref _show, null);
             Volatile.Write(ref _hide, null);
             Volatile.Write(ref _setWindowState, null);
@@ -252,6 +256,9 @@ namespace System.Windows
             frame = reported;
             return true;
         }
+
+        internal static bool RequiresSourceFixedCaption(object activation)
+            => activation != null && Volatile.Read(ref _requiresSourceFixedCaption)?.Invoke(activation) == true;
 
         internal static void SetPosition(object activation, double left, double top)
         {
@@ -1377,7 +1384,8 @@ namespace System.Windows
                     callbacks.SetOwner,
                     callbacks.ReleaseDialog,
                     callbacks.GetFrameInsets,
-                    callbacks.SetWin32TaskbarVisibility);
+                    callbacks.SetWin32TaskbarVisibility,
+                    callbacks.RequiresSourceFixedCaption);
             }
 
             public bool TryRegisterMediaContextRenderService(

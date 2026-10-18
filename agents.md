@@ -1,3 +1,11 @@
+Source-owned fixed captions require the live host's explicit capability and
+ordinary NoResize/decorated source policy. Preserve public style, Content/template,
+actual native client/outer frame accounting and application WindowChrome priority.
+Caption dimensions belong to the owned visual, never a fabricated native inset.
+Close, drag and menu actions retain the existing source/host lifetime and input
+gates. Original GNOME captures and both renderer/package gates remain required;
+see docs/portable-fixed-window-caption.md. Source controls are not qualification.
+
 X11 source outer dimensions are reconciled after actual native Show using one
 live frame measurement for both axes. Preserve empty/unavailable distinction,
 normal-state admission, source dimension precedence and exact shown-window

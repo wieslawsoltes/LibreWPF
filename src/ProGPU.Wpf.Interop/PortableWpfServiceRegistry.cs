@@ -565,6 +565,13 @@ public sealed class PortableWindowActivationCallbacks
     /// </summary>
     public Func<object, PortableWindowFrameInsets?>? GetFrameInsets { get; init; }
 
+    /// <summary>
+    /// Reports whether this live host needs a source-owned caption for ordinary
+    /// NoResize windows. The source still owns style/custom-chrome selection.
+    /// This is decoration policy, not a native frame measurement or input gate.
+    /// </summary>
+    public Func<object, bool>? RequiresSourceFixedCaption { get; init; }
+
     public Action<object, double, double>? SetPosition { get; }
 
     public Action<object, bool>? SetTopmost { get; }
