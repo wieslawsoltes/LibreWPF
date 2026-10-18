@@ -1,0 +1,87 @@
+{
+  "upstreamCommit": "811d01e95c8c929e68539d698d0a0609e94fd185",
+  "originalSourceFiles": 11,
+  "files": {
+    "GallerySliderProbe.cs": {
+      "bytes": 6148,
+      "sha256": "616e5aecc48d8f181d547443a17b127c6fa4f60739bc31a0d6ad2fa3a667a536"
+    },
+    "GallerySliderProbe.csproj": {
+      "bytes": 1193,
+      "sha256": "98e72d7f9b4a8f7fd27edb03dfc06149cfb553aea98d3cf0a36efe59a833be74"
+    },
+    "global.json": {
+      "bytes": 103,
+      "sha256": "9df5d8d1e64f1881993688eeabcf13b9865a06b41e42f76a47bad0bbea8bdd35"
+    },
+    "guest-run-native.py": {
+      "bytes": 2268,
+      "sha256": "c221ea095f13e6e2c13259cf2043965f4b31009bc8a9a916bc2f81de55b8b0b7"
+    },
+    "input-delivery-20261013/native-input-authorization.json": {
+      "bytes": 247,
+      "sha256": "9ce1a4cd5a47919a4bf3556e3da85701922827a73a1b3c40e1e10606c53b96ba"
+    },
+    "input-delivery-20261013/native-input-proposal.txt": {
+      "bytes": 2514,
+      "sha256": "80814a139273ff9eed0c88606bcd9d652dde66e10ab445c1840e6bb96f036734"
+    },
+    "input-delivery-20261013/slider-native-input.py": {
+      "bytes": 11420,
+      "sha256": "b58336ee6db45ffee968bccf8dc274850a3fbdd548ce347cb74b72eef0969e61"
+    },
+    "original/Controls/ControlExample.xaml": {
+      "bytes": 9660,
+      "sha256": "5f4fe3c9e4b7bb4e8803c9de946e75036ce19fa80b56e927d8c46d7007a5304f"
+    },
+    "original/Controls/ControlExample.xaml.cs": {
+      "bytes": 5390,
+      "sha256": "1a1339debebcd92a323883311ee554033f8316e1f4da8304acda678c9bf87f0f"
+    },
+    "original/Controls/PageHeader.xaml": {
+      "bytes": 2683,
+      "sha256": "44dcc0936e99682d18db0bd6280a86de0cb65255ac2b2592a2765c2b5e09827f"
+    },
+    "original/Controls/PageHeader.xaml.cs": {
+      "bytes": 1201,
+      "sha256": "995757014189e65c4db35a760db134a9cb736c9f1f17d66d520db8b3ad91c92d"
+    },
+    "original/Helpers/EmptyToVisibilityConverter.cs": {
+      "bytes": 684,
+      "sha256": "6a1feaa225e40b33b91d2aef3ca542fa61ec22e174b3cf5a0110c7c2d8ca5556"
+    },
+    "original/Helpers/NullToVisibilityConverter.cs": {
+      "bytes": 798,
+      "sha256": "250341021137bec2782a1e153e0c84775edad5f432551df40d230291c8bc7d39"
+    },
+    "original/LICENSE": {
+      "bytes": 1077,
+      "sha256": "cf248820bf1178370bb4f1670a59f8748d46bc96d0f64080cd631511c6046409"
+    },
+    "original/Usings.cs": {
+      "bytes": 754,
+      "sha256": "1916a529ef9c72da8706588fe5d2718c4bca0d3da9797af86b9d058c3c15010f"
+    },
+    "original/ViewModels/BasicInput/SliderPageViewModel.cs": {
+      "bytes": 767,
+      "sha256": "c53e9b63e958c0bea1b6c05ae30f55dfc94c1e7eba636fb91a3298673a39bc36"
+    },
+    "original/Views/BasicInput/SliderPage.xaml": {
+      "bytes": 9259,
+      "sha256": "f24e4833e8aaec854ee04fc9f02a111ed1a81efc0c6ddea916b79b432277ea5f"
+    },
+    "original/Views/BasicInput/SliderPage.xaml.cs": {
+      "bytes": 533,
+      "sha256": "c885240dce091fc961d77067279b945359bc3fb2b4d9c35a067c7ff55ffe2bcb"
+    },
+    "source-manifest.json": {
+      "bytes": 3440,
+      "sha256": "2702f20b97c78e37d712a0cd80c37e3df3e9633ae3a9ece9c5f0d1b2704157e8"
+    }
+  },
+  "archiveSha256": "d18a86dc068fe3253db1ad54a11f14307bcc72cad62faacfe38379dcf107818c",
+  "originalPayloadSha256": "7442e76d88d73f2982cd4b5e9ccc306c57866e5b32fbec3cc2a6ffc7a356d023",
+  "inputExecuted": false,
+  "qualified": false,
+  "scope": "Exact original source/observer/project/driver bundle. Candidate runtime replacement and hosted input are not authorized by this receipt."
+}

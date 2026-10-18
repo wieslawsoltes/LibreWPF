@@ -1,67 +1,36 @@
-name: Original Linux multi-window qualified packages
+name: Prepare original Linux Slider candidate
 on:
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
-  original-multi-window:
+  prepare-slider:
     runs-on: ubuntu-26.04-arm
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          ref: 46dcf9f4f7aadbe8f72c87c5d58d7b502596bdf8
-          path: original
-          sparse-checkout: src/ProGPU.Wpf.MultiWindowSmokeHarness
-          persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          repository: wieslawsoltes/ProGPU
-          ref: aef75180bcdc3b937d004b6b949e0e91724c7981
-          path: font-source
-          sparse-checkout: src/ProGPU.Fonts.Inter/Fonts
-          persist-credentials: false
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.201
-      - name: Prepare actual disposable Ubuntu26 native desktop dependencies
-        run: python3 eng/diagnostic-ubuntu26-desktop.py
-      - name: Download exact archive from the retained producer receipt
+          dotnet-version: 11.0.100-preview.5.26302.115
+      - name: Download exact whole-qualified producer archive
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 eng/diagnostic-fetch-candidate-archive.py
-      - name: Build unchanged original source from the qualified package closure
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import json, subprocess
-          from pathlib import Path
-          identity = json.loads(Path('eng/diagnostic-producer/identity.json').read_text())
-          subprocess.run(['python3', 'eng/diagnostic-prepare-multi-window.py',
-                          '--producer', 'eng/diagnostic-producer',
-                          '--head', identity['head'], '--build', str(identity['build']),
-                          '--docs', str(identity['docs']), '--progpu-head', identity['progpu']], check=True)
-          PY
-      - name: Observe original forced GL windows in genuinely headless X11
-        run: python3 eng/diagnostic-run-multi-window.py
-      - name: Observe original forced GL windows in actual owned GNOME Wayland and Xwayland
-        run: timeout 660s dbus-run-session -- python3 eng/diagnostic-desktop-session.py
-      - name: Require original application outcomes and unchanged payloads
-        run: python3 eng/diagnostic-verify-multi-window.py artifacts
-      - name: Retain original application, preparation and environment evidence
+      - name: Build unchanged Slider source without execution or input
+        run: python3 eng/diagnostic-prepare-slider.py --producer eng/diagnostic-producer --inputs eng/diagnostic-slider-inputs
+      - name: Preserve exact candidate and complete preparation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ubuntu26-original-multi-window-candidate
+          name: original-linux-slider-a255-preparation
           path: |
-            artifacts/ubuntu26-*.json
-            artifacts/ubuntu26-*.application.log
-            artifacts/ubuntu26-headless-server.log
-            ${{ runner.temp }}/original-multi-window/build.log
-            eng/diagnostic-producer/*.json
+            ${{ runner.temp }}/original-slider-candidate/preparation.json
+            ${{ runner.temp }}/original-slider-candidate/build.log
+            ${{ runner.temp }}/original-slider-candidate/GallerySliderProbe.csproj
+            ${{ runner.temp }}/original-slider-candidate/original-project.csproj.txt
+            ${{ runner.temp }}/original-slider-candidate/bin/Release/net10.0-windows/**
           retention-days: 14
           if-no-files-found: error
