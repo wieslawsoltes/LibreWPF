@@ -33,3 +33,22 @@ Linux payload files and rejects the original malformed license path without
 publishing a destination. That local package is a staging control, not a
 whole-producer or application qualification result. The mixed-session source
 application remains tracked in [#187](https://github.com/wieslawsoltes/LibreWPF/issues/187).
+
+Ordinary source harnesses do not inherit ProGPU's repository targets. The
+multi-window harness and source test project explicitly import
+`eng/LibreWPF.XlibRuntime.targets` at their executable/test boundary. This selects
+the actual source root's staged dependency and reuses its producer asset target;
+it does not copy libraries into every referenced project. Portable output retains
+both Linux RIDs, RID-specific output selects only its own assets, and other OS
+targets remain independent. The original headless default/GL/Vulkan scenarios
+stage the exact successful producer before creating their first window.
+
+The additional real-payload control checks all original bytes and copy metadata
+through both source imports, including repeated imports and library opt-outs.
+Source runtime imports normalize their own path copy, so an explicit global
+`ProGpuSourceRoot` works with or without a trailing separator. This keeps the
+caller's property unchanged and covers both automatic staging discovery and
+an explicit runtime root. The original no-separator case selected no assets;
+the corrected control retains the complete payload inventory in either form.
+It does not execute a Linux application. Package-mode SDK applications retain
+normal NuGet runtime selection; no source-root inference replaces package identity.

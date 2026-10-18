@@ -1,3 +1,10 @@
+Source multi-window/test applications import the producer asset target at their
+actual executable boundary. Preserve library opt-outs, source-root ownership,
+RID selection and duplicate-import prevention; stage before original GL windows
+are created. Normalize a private source-root copy so global paths without a
+trailing separator retain the same runtime assets. Asset checks do not qualify
+desktop execution.
+
 Optional source Xlib runtime staging uses the same exact whole successful ProGPU
 producer as native/SDK and DX12 payloads. Preserve both architecture inventories,
 source/dependency receipts, original hashes and extensionless licenses; validate

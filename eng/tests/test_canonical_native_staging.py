@@ -48,7 +48,7 @@ class CanonicalNativeStagingTests(unittest.TestCase):
     def test_stages_exact_checkout_into_its_native_package_root(self):
         status, arguments, root = self.run_step()
         self.assertEqual(status, 0)
-        self.assertEqual(arguments, ["a" * 40, root + "/external/ProGPU/artifacts/progpu-native/package"])
+        self.assertEqual(arguments, ["a" * 40, root + "/external/ProGPU/artifacts/progpu-native/package", root + "/external/ProGPU/artifacts/progpu-dx12/package", root + "/external/ProGPU/artifacts/progpu-xlib/package"])
 
     def test_failed_producer_staging_fails_the_step(self):
         status, arguments, _ = self.run_step(helper_status=23)

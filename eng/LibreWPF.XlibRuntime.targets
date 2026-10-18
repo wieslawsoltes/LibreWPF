@@ -1,0 +1,15 @@
+<Project>
+  <!-- Ordinary source harnesses do not import ProGPU's Directory.Build.targets.
+       Select its staged runtime only at this application's/test's boundary. -->
+  <PropertyGroup>
+    <ProGpuSourceRoot Condition="'$(ProGpuSourceRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)../external/ProGPU'))</ProGpuSourceRoot>
+    <_LibreWpfXlibProGpuRoot>$([MSBuild]::NormalizeDirectory('$(ProGpuSourceRoot)'))</_LibreWpfXlibProGpuRoot>
+    <ProGpuXlibSourceRuntimeRoot Condition="'$(ProGpuXlibSourceRuntimeRoot)' == '' And Exists('$(_LibreWpfXlibProGpuRoot)artifacts/progpu-xlib/package')">$(_LibreWpfXlibProGpuRoot)artifacts/progpu-xlib/package</ProGpuXlibSourceRuntimeRoot>
+    <_LibreWpfImportXlibRuntime Condition="'$(_LibreWpfXlibRuntimeImported)' != 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe' Or '$(IsTestProject)' == 'true') And '$(ProGpuXlibSourceRuntimeRoot)' != '' And Exists('$(_LibreWpfXlibProGpuRoot)src/ProGPU.Backend/buildTransitive/ProGPU.Backend.targets')">true</_LibreWpfImportXlibRuntime>
+  </PropertyGroup>
+  <Import Project="$(_LibreWpfXlibProGpuRoot)src/ProGPU.Backend/buildTransitive/ProGPU.Backend.targets"
+          Condition="'$(_LibreWpfImportXlibRuntime)' == 'true' And '$(_LibreWpfXlibRuntimeImported)' != 'true'" />
+  <PropertyGroup>
+    <_LibreWpfXlibRuntimeImported Condition="'$(_LibreWpfImportXlibRuntime)' == 'true'">true</_LibreWpfXlibRuntimeImported>
+  </PropertyGroup>
+</Project>
