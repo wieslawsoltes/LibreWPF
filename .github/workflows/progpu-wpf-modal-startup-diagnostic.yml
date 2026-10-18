@@ -17,6 +17,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu26-desktop-environment
-          path: artifacts/ubuntu26-desktop-environment.json
+          path: artifacts/ubuntu26-desktop*.json
           retention-days: 7
           if-no-files-found: error

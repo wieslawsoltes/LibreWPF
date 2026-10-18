@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Disposable hosted environment inventory; no application, desktop or input session."""
+"""Disposable hosted environment and owned desktop inventory; no product application or input."""
 import json, os, pathlib, platform, subprocess, time
 root = pathlib.Path("artifacts")
 root.mkdir(exist_ok=True)
@@ -33,6 +33,8 @@ try:
     invoke(["gnome-shell", "--help"], 10)
     invoke(["mutter", "--version"], 10)
     invoke(["mutter", "--help"], 10)
+    record["desktopSessionRequested"] = True
+    invoke(["dbus-run-session", "--", "python3", "eng/diagnostic-desktop-session.py"], 60)
     record["completed"] = True
 except BaseException as error:
     record.update(completed=False, error=type(error).__name__ + ": " + str(error))
