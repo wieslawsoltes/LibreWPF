@@ -74,6 +74,19 @@ weaken original capture assertions or use local shared VMs.
 
 ## Close response policy
 
+The whole-qualified `aaf2eabde` producer passes the four-dialog hosted observation
+in [run 39139024731](https://github.com/wieslawsoltes/LibreWPF/actions/runs/39139024731).
+The four original 520×190 client captures show one source titlebar and Close,
+without minimize/maximize; YesNo visibly disables Close. The independently
+captured native owner retains all three controls. All 253 output hashes remain
+unchanged, and each programmatic response restores the original owner. The
+process completes in 12.232 seconds under the unchanged 60-second bound with
+zero native input. Original artifact 12140802231 has SHA-256
+`803c80c4d29c314846dece29cb271da7e197e8195818c368646051b6bb745ed1`.
+The old native-title assertion remains separately rejected; this source-caption
+observation does not qualify native dragging/closing, broader DPI/modal behavior,
+or the subsequent native-enabled-state producer and final preview70 packages.
+
 The typed activation contract also carries the explicitly selected Close enabled
 state to the native host. It preserves the original 25-argument legacy registrar;
 legacy registration and Clear remove any previous optional close callback.
