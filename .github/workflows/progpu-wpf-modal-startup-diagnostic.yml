@@ -1,36 +1,33 @@
-name: Prepare original Linux Slider candidate
+name: Original Linux Slider no-input readiness
 on:
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
-  prepare-slider:
+  slider-readiness:
     runs-on: ubuntu-26.04-arm
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 11.0.100-preview.5.26302.115
-      - name: Download exact whole-qualified producer archive
+          dotnet-version: 10.0.201
+      - name: Prepare disposable Ubuntu26 desktop and read-only capture
+        run: python3 eng/diagnostic-slider-desktop-dependencies.py
+      - name: Download exact retained compiled application
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 eng/diagnostic-fetch-candidate-archive.py
-      - name: Build unchanged Slider source without execution or input
-        run: python3 eng/diagnostic-prepare-slider.py --producer eng/diagnostic-producer --inputs eng/diagnostic-slider-inputs
-      - name: Preserve exact candidate and complete preparation evidence
+        run: python3 eng/diagnostic-fetch-built-slider.py
+      - name: Inspect original application in owned GNOME without input
+        run: timeout 240s dbus-run-session -- python3 eng/diagnostic-slider-desktop-session.py
+      - name: Retain source events, native inspection and raw capture
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: original-linux-slider-a255-preparation
-          path: |
-            ${{ runner.temp }}/original-slider-candidate/preparation.json
-            ${{ runner.temp }}/original-slider-candidate/build.log
-            ${{ runner.temp }}/original-slider-candidate/GallerySliderProbe.csproj
-            ${{ runner.temp }}/original-slider-candidate/original-project.csproj.txt
-            ${{ runner.temp }}/original-slider-candidate/bin/Release/net10.0-windows/**
+          name: original-linux-slider-no-input-readiness
+          path: artifacts/**
           retention-days: 14
           if-no-files-found: error
