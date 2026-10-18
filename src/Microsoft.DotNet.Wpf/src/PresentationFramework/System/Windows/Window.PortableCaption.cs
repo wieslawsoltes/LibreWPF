@@ -11,12 +11,24 @@ namespace System.Windows
 
         internal static readonly DependencyProperty IsPortableCaptionCloseEnabledProperty =
             DependencyProperty.Register("IsPortableCaptionCloseEnabled", typeof(bool), typeof(Window),
-                new FrameworkPropertyMetadata(true));
+                new FrameworkPropertyMetadata(true, OnPortableCaptionCloseEnabledChanged));
 
         internal bool IsPortableCaptionCloseEnabled
         {
             get => (bool)GetValue(IsPortableCaptionCloseEnabledProperty);
             set => SetValue(IsPortableCaptionCloseEnabledProperty, value);
+        }
+
+        private static void OnPortableCaptionCloseEnabledChanged(DependencyObject source, DependencyPropertyChangedEventArgs args)
+            => ((Window)source).ApplyPortableCloseButtonEnabled(force: true);
+
+        private void ApplyPortableCloseButtonEnabled(bool force = false)
+        {
+            // Ordinary windows do not opt into a new native close policy.
+            // The source guard remains authoritative when a host lacks support.
+            object activation = _portableWindowActivation;
+            if (activation != null && (force || ReadLocalValue(IsPortableCaptionCloseEnabledProperty) != DependencyProperty.UnsetValue))
+                PortableWindowActivationService.SetCloseButtonEnabled(activation, IsPortableCaptionCloseEnabled);
         }
 
         protected override int VisualChildrenCount
@@ -28,6 +40,7 @@ namespace System.Windows
 
         private void UpdatePortableFixedCaption()
         {
+            ApplyPortableCloseButtonEnabled();
             object activation = _portableWindowActivation;
             bool supported = PortableWindowActivationService.RequiresSourceFixedCaption(activation);
             // Host callbacks may reenter source property/lifetime changes. Read

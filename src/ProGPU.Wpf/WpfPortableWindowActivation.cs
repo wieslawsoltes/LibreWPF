@@ -197,6 +197,8 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             GetFrameInsets = activation => ((WpfPortableWindowActivation)activation).Host.GetLogicalNativeFrameInsets(),
             RequiresSourceFixedCaption = activation =>
                 ((WpfPortableWindowActivation)activation).Host.NativeWindowHandle.Kind == NativeWindowKind.X11,
+            SetCloseButtonEnabled = (activation, enabled) =>
+                ((WpfPortableWindowActivation)activation).SetCloseButtonEnabled(enabled),
             SetWin32TaskbarVisibility = OperatingSystem.IsWindows()
                 ? (activation, visible) => ((WpfPortableWindowActivation)activation).Host.SetWin32TaskbarVisibility(visible)
                 : null
@@ -597,6 +599,12 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             canMaximize = capabilities.CanMaximize;
         }
         Host.SetWindowBorder(ResolveWindowBorder(resizeMode, windowStyle, Host.WindowBorder), canMinimize, canMaximize);
+    }
+
+    public bool SetCloseButtonEnabled(bool enabled)
+    {
+        ThrowIfDisposed();
+        return Host.SetCloseButtonEnabled(enabled);
     }
 
     public bool SetWindowRegion(PortableWindowRegion region)

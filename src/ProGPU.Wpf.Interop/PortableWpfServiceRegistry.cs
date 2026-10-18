@@ -572,6 +572,11 @@ public sealed class PortableWindowActivationCallbacks
     /// </summary>
     public Func<object, bool>? RequiresSourceFixedCaption { get; init; }
 
+    /// <summary>Changes enabled state of an existing close control, independently
+    /// of its visibility or programmatic closing. False means unsupported or
+    /// not yet applied; an advisory native hint is not desktop qualification.</summary>
+    public Func<object, bool, bool>? SetCloseButtonEnabled { get; init; }
+
     public Action<object, double, double>? SetPosition { get; }
 
     public Action<object, bool>? SetTopmost { get; }

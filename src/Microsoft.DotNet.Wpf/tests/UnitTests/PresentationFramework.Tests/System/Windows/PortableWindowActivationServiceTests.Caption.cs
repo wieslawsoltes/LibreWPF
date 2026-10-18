@@ -153,9 +153,59 @@ public partial class PortableWindowActivationServiceTests
         }));
     }
 
+    [PortableInputFact]
+    public void CaptionClosePolicyReachesSameHostAndClearingRestoresEnabledState()
+    {
+        RunInUiApartment(() =>
+        {
+            foreach (bool sourceCaption in new[] { false, true })
+            {
+                var values = new List<(Window Owner, bool Enabled)>();
+                WithCaptionWindow(sourceCaption, (window, host, styles) =>
+                {
+                    Assert.NotEmpty(values);
+                    Assert.All(values, value => { Assert.Same(window, value.Owner); Assert.False(value.Enabled); });
+                    window.ClearValue(Window.IsPortableCaptionCloseEnabledProperty);
+                    Assert.True(values.Last().Enabled);
+                    Assert.Same(window, values.Last().Owner);
+                    window.IsPortableCaptionCloseEnabled = false;
+                    Assert.False(values.Last().Enabled);
+                    if (sourceCaption) Assert.False(Assert.Single(Caption(window)!.Children.OfType<Button>()).IsEnabled);
+                }, closePolicy: (window, enabled) => values.Add((window, enabled)), initialCloseEnabled: false);
+            }
+            int ordinaryRequests = 0;
+            WithCaptionWindow(false, (_, _, _) => Assert.Equal(0, ordinaryRequests),
+                closePolicy: (_, _) => ordinaryRequests++);
+        });
+    }
+
+    [PortableInputFact]
+    public void LegacyCaptionRegistrationCannotRetainPriorCloseCapability()
+    {
+        RunInUiApartment(() =>
+        {
+            object activation = new();
+            int calls = 0;
+            try
+            {
+                PortableWindowActivationService.RegisterCallbacks(new PortableWindowActivationCallbacks(value => value)
+                {
+                    SetCloseButtonEnabled = (owner, _) => { Assert.Same(activation, owner); calls++; return true; }
+                });
+                Assert.True(PortableWindowActivationService.SetCloseButtonEnabled(activation, false));
+                PortableWindowActivationService.Register(value => value);
+                Assert.False(PortableWindowActivationService.SetCloseButtonEnabled(activation, false));
+                Assert.Equal(1, calls);
+            }
+            finally { PortableWindowActivationService.Clear(); }
+        });
+    }
+
     private static void WithCaptionWindow(bool enabled,
         Action<Window, IPortablePresentationSourceHost, List<WindowStyle>> test,
-        Func<Window, bool>? query = null)
+        Func<Window, bool>? query = null,
+        Action<Window, bool>? closePolicy = null,
+        bool? initialCloseEnabled = null)
     {
         using IPortablePresentationSourceHost host = PortablePresentationSourceHost.Create();
         var window = new Window
@@ -171,11 +221,19 @@ public partial class PortableWindowActivationServiceTests
             new Binding(nameof(Window.Content)) { RelativeSource = RelativeSource.TemplatedParent });
         window.Template = new ControlTemplate(typeof(Window)) { VisualTree = presenter };
         var styles = new List<WindowStyle>();
-        PortableWindowActivationService.Register(activate: value => value,
+        if (initialCloseEnabled is { } initial) window.IsPortableCaptionCloseEnabled = initial;
+        PortableWindowActivationService.RegisterCallbacks(new PortableWindowActivationCallbacks(activate: value => value,
             getHandle: _ => host.Handle,
-            getFrameInsets: _ => default(PortableWindowFrameInsets),
-            requiresSourceFixedCaption: enabled ? source => query?.Invoke((Window)source) ?? true : null,
-            setWindowBorder: (_, _, style) => styles.Add((WindowStyle)style));
+            setWindowBorder: (_, _, style) => styles.Add((WindowStyle)style))
+        {
+            GetFrameInsets = _ => default(PortableWindowFrameInsets),
+            RequiresSourceFixedCaption = enabled ? source => query?.Invoke((Window)source) ?? true : null,
+            SetCloseButtonEnabled = closePolicy == null ? null : (source, value) =>
+            {
+                closePolicy((Window)source, value);
+                return true;
+            }
+        });
         try
         {
             window.Show();

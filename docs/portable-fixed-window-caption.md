@@ -74,6 +74,20 @@ weaken original capture assertions or use local shared VMs.
 
 ## Close response policy
 
+The typed activation contract also carries the explicitly selected Close enabled
+state to the native host. It preserves the original 25-argument legacy registrar;
+legacy registration and Clear remove any previous optional close callback.
+Ordinary windows with no local policy send no override. Clearing a local policy
+restores the default enabled state on the same current activation.
+
+The host retains the selected value through native creation and chrome changes.
+It calls ProGPU's separate `SetCloseButtonEnabled`, never `SetCanClose(false)`,
+which would hide native chrome. Source cancellation remains authoritative even
+when the callback reports unsupported or not yet applied. This implementation
+requires a matching rebuilt ProGPU producer; the older public package pin does
+not gain this API through source-only checks. Native Windows/macOS button state,
+X11 hint handling, and complete desktop/package acceptance remain separate gates.
+
 The portable MessageBox previously initialized its close result to the default
 button when no Cancel response existed. That let a Yes/No window close as Yes
 without a response selection. The source now keeps cancellation separate from

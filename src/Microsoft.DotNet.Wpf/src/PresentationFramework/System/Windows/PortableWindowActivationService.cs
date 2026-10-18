@@ -42,6 +42,7 @@ namespace System.Windows
         private static Func<object, double, double, bool> _showSystemMenu;
         private static Func<object, PortableWindowFrameInsets?> _getFrameInsets;
         private static Func<object, bool> _requiresSourceFixedCaption;
+        private static Func<object, bool, bool> _setCloseButtonEnabled;
 
         internal static bool IsEnabled
         {
@@ -116,33 +117,48 @@ namespace System.Windows
             Action<object, bool> setWin32TaskbarVisibility = null,
             Func<object, bool> requiresSourceFixedCaption = null)
         {
-            ArgumentNullException.ThrowIfNull(activate);
+            RegisterCallbacks(new PortableWindowActivationCallbacks(activate, show, hide,
+                setWindowState, setTitle, setClientSize, setPosition, setTopmost,
+                setWindowBorder, close, run, dispose, dragMove, getHandle,
+                setWindowRegion, requestActivation, setIcon)
+            {
+                CreateHidden = createHidden, ShowSystemMenu = showSystemMenu,
+                RunDialog = runDialog, SetOwner = setOwner, ReleaseDialog = releaseDialog,
+                GetFrameInsets = getFrameInsets, SetWin32TaskbarVisibility = setWin32TaskbarVisibility,
+                RequiresSourceFixedCaption = requiresSourceFixedCaption
+            });
+        }
 
-            Volatile.Write(ref _show, show);
-            Volatile.Write(ref _hide, hide);
-            Volatile.Write(ref _setWindowState, setWindowState);
-            Volatile.Write(ref _setTitle, setTitle);
-            Volatile.Write(ref _setClientSize, setClientSize);
-            Volatile.Write(ref _setPosition, setPosition);
-            Volatile.Write(ref _setTopmost, setTopmost);
-            Volatile.Write(ref _setWin32TaskbarVisibility, setWin32TaskbarVisibility);
-            Volatile.Write(ref _setWindowBorder, setWindowBorder);
-            Volatile.Write(ref _close, close);
-            Volatile.Write(ref _run, run);
-            Volatile.Write(ref _runDialog, runDialog);
-            Volatile.Write(ref _releaseDialog, releaseDialog);
-            Volatile.Write(ref _setOwner, setOwner);
-            Volatile.Write(ref _dispose, dispose);
-            Volatile.Write(ref _dragMove, dragMove);
-            Volatile.Write(ref _getHandle, getHandle);
-            Volatile.Write(ref _setWindowRegion, setWindowRegion);
-            Volatile.Write(ref _requestActivation, requestActivation);
-            Volatile.Write(ref _setIcon, setIcon);
-            Volatile.Write(ref _createHidden, createHidden);
-            Volatile.Write(ref _showSystemMenu, showSystemMenu);
-            Volatile.Write(ref _getFrameInsets, getFrameInsets);
-            Volatile.Write(ref _requiresSourceFixedCaption, requiresSourceFixedCaption);
-            Volatile.Write(ref _activate, activate);
+        internal static void RegisterCallbacks(PortableWindowActivationCallbacks callbacks)
+        {
+            ArgumentNullException.ThrowIfNull(callbacks);
+
+            Volatile.Write(ref _show, callbacks.Show);
+            Volatile.Write(ref _hide, callbacks.Hide);
+            Volatile.Write(ref _setWindowState, callbacks.SetWindowState);
+            Volatile.Write(ref _setTitle, callbacks.SetTitle);
+            Volatile.Write(ref _setClientSize, callbacks.SetClientSize);
+            Volatile.Write(ref _setPosition, callbacks.SetPosition);
+            Volatile.Write(ref _setTopmost, callbacks.SetTopmost);
+            Volatile.Write(ref _setWin32TaskbarVisibility, callbacks.SetWin32TaskbarVisibility);
+            Volatile.Write(ref _setWindowBorder, callbacks.SetWindowBorder);
+            Volatile.Write(ref _close, callbacks.Close);
+            Volatile.Write(ref _run, callbacks.Run);
+            Volatile.Write(ref _runDialog, callbacks.RunDialog);
+            Volatile.Write(ref _releaseDialog, callbacks.ReleaseDialog);
+            Volatile.Write(ref _setOwner, callbacks.SetOwner);
+            Volatile.Write(ref _dispose, callbacks.Dispose);
+            Volatile.Write(ref _dragMove, callbacks.DragMove);
+            Volatile.Write(ref _getHandle, callbacks.GetHandle);
+            Volatile.Write(ref _setWindowRegion, callbacks.SetWindowRegion);
+            Volatile.Write(ref _requestActivation, callbacks.RequestActivation);
+            Volatile.Write(ref _setIcon, callbacks.SetIcon);
+            Volatile.Write(ref _createHidden, callbacks.CreateHidden);
+            Volatile.Write(ref _showSystemMenu, callbacks.ShowSystemMenu);
+            Volatile.Write(ref _getFrameInsets, callbacks.GetFrameInsets);
+            Volatile.Write(ref _requiresSourceFixedCaption, callbacks.RequiresSourceFixedCaption);
+            Volatile.Write(ref _setCloseButtonEnabled, callbacks.SetCloseButtonEnabled);
+            Volatile.Write(ref _activate, callbacks.Activate);
         }
 
         internal static void Clear()
@@ -152,6 +168,7 @@ namespace System.Windows
             Volatile.Write(ref _showSystemMenu, null);
             Volatile.Write(ref _getFrameInsets, null);
             Volatile.Write(ref _requiresSourceFixedCaption, null);
+            Volatile.Write(ref _setCloseButtonEnabled, null);
             Volatile.Write(ref _show, null);
             Volatile.Write(ref _hide, null);
             Volatile.Write(ref _setWindowState, null);
@@ -259,6 +276,9 @@ namespace System.Windows
 
         internal static bool RequiresSourceFixedCaption(object activation)
             => activation != null && Volatile.Read(ref _requiresSourceFixedCaption)?.Invoke(activation) == true;
+
+        internal static bool SetCloseButtonEnabled(object activation, bool enabled)
+            => activation != null && Volatile.Read(ref _setCloseButtonEnabled)?.Invoke(activation, enabled) == true;
 
         internal static void SetPosition(object activation, double left, double top)
         {
@@ -1360,32 +1380,7 @@ namespace System.Windows
             {
                 ArgumentNullException.ThrowIfNull(callbacks);
 
-                PortableWindowActivationService.Register(
-                    callbacks.Activate,
-                    callbacks.Show,
-                    callbacks.Hide,
-                    callbacks.SetWindowState,
-                    callbacks.SetTitle,
-                    callbacks.SetClientSize,
-                    callbacks.SetPosition,
-                    callbacks.SetTopmost,
-                    callbacks.SetWindowBorder,
-                    callbacks.Close,
-                    callbacks.Run,
-                    callbacks.Dispose,
-                    callbacks.DragMove,
-                    callbacks.GetHandle,
-                    callbacks.SetWindowRegion,
-                    callbacks.RequestActivation,
-                    callbacks.SetIcon,
-                    callbacks.CreateHidden,
-                    callbacks.ShowSystemMenu,
-                    callbacks.RunDialog,
-                    callbacks.SetOwner,
-                    callbacks.ReleaseDialog,
-                    callbacks.GetFrameInsets,
-                    callbacks.SetWin32TaskbarVisibility,
-                    callbacks.RequiresSourceFixedCaption);
+                PortableWindowActivationService.RegisterCallbacks(callbacks);
             }
 
             public bool TryRegisterMediaContextRenderService(

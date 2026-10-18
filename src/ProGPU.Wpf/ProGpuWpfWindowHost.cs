@@ -169,6 +169,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
     private bool _windowTopmost;
     private ProGpuWpfWindowBorder _windowBorder;
     private bool _canMinimize;
+    private bool? _closeButtonEnabled;
     private bool _canMaximize;
     private byte[]? _windowIconPixels;
     private int _windowIconWidth;
@@ -1715,6 +1716,15 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
 
     public void SetWindowBorder(ProGpuWpfWindowBorder windowBorder)
         => SetWindowBorder(windowBorder, _canMinimize, _canMaximize);
+
+    public bool SetCloseButtonEnabled(bool enabled)
+    {
+        ThrowIfDisposed();
+        _closeButtonEnabled = enabled;
+        bool applied = _windowController?.SetCloseButtonEnabled(enabled) == true;
+        RequestRenderAndWakeNativeLoop();
+        return applied;
+    }
 
     public void SetWindowBorder(ProGpuWpfWindowBorder windowBorder, bool canMinimize, bool canMaximize)
     {
@@ -6484,5 +6494,7 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _windowController.SetCanResize(resizable);
         _windowController.SetCanMinimize(_canMinimize);
         _windowController.SetCanMaximize(_canMaximize);
+        if (_closeButtonEnabled is { } closeEnabled)
+            _windowController.SetCloseButtonEnabled(closeEnabled);
     }
 }

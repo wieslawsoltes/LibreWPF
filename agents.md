@@ -1,3 +1,10 @@
+Explicit source Close enabled state uses the typed optional activation callback
+and the matching ProGPU enabled-state primitive, never CanClose visibility.
+Preserve ordinary unselected windows, same-activation ownership, local-policy
+clear/reset and legacy registration clearing. A missing native host returns false;
+source cancellation remains independent. Match the rebuilt producer before pin
+or package qualification. See docs/portable-fixed-window-caption.md.
+
 Portable MessageBox close availability retains cancellation separately from its
 default response. No-cancel choices reject close until an actual response; OK-only
 retains Escape dismissal. Source caption Close observes the same enabled policy;
