@@ -3,6 +3,8 @@ root=pathlib.Path.cwd();artifacts=root/'artifacts';artifacts.mkdir(exist_ok=True
 assert os.environ.get('RUNNER_ENVIRONMENT')=='github-hosted'
 assert os.environ.get('GITHUB_REPOSITORY')=='wieslawsoltes/LibreWPF'
 started=time.monotonic()
+os.environ['LIBCLANG_PATH']='/usr/lib/llvm-18/lib'
+libclang=pathlib.Path('/usr/lib/llvm-18/lib/libclang.so').resolve();assert libclang.is_file()
 def run(args,cwd=None):return subprocess.check_output(args,cwd=cwd,text=True).strip()
 pins={'native':'33133da4ec5a0174cb21539ef2d3346f75200411','wgpu':'87576b72b37c6b78b41104eb25fc31893af94092'}
 for directory,revision in pins.items():
@@ -21,6 +23,6 @@ subprocess.run(['rustup','toolchain','install','1.99.0','--profile','minimal'],c
 subprocess.run(['cargo','+1.99.0','build','--release','--locked','--jobs','2'],cwd=root/'native',check=True,timeout=900)
 assert hashlib.sha256(lock.read_bytes()).hexdigest()==lock_hash
 library=root/'native/target/release/libwgpu_native.so';assert library.is_file()
-subprocess.run(['clang','-std=c11','-Wall','-Wextra','-Werror','-I',str(root/'native/ffi'),'-I',str(root/'native/ffi/webgpu-headers'),str(root/'eng/diagnostic-egl/native-surface-probe.c'),'-L',str(library.parent),'-Wl,-rpath,'+str(library.parent),'-lwgpu_native','-lX11','-o',str(artifacts/'native-surface-probe')],check=True)
-record=dict(qualified=False,inputSent=False,sourcePins=pins,patches=hashes,lockSha256=lock_hash,librarySha256=hashlib.sha256(library.read_bytes()).hexdigest(),probeSha256=hashlib.sha256((artifacts/'native-surface-probe').read_bytes()).hexdigest(),rust=run(['rustc','+1.99.0','--version']),elapsedSeconds=time.monotonic()-started)
+subprocess.run(['clang-18','-std=c11','-Wall','-Wextra','-Werror','-I',str(root/'native/ffi'),'-I',str(root/'native/ffi/webgpu-headers'),str(root/'eng/diagnostic-egl/native-surface-probe.c'),'-L',str(library.parent),'-Wl,-rpath,'+str(library.parent),'-lwgpu_native','-lX11','-o',str(artifacts/'native-surface-probe')],check=True)
+record=dict(libclangSha256=hashlib.sha256(libclang.read_bytes()).hexdigest(),libclangPackage=run(['dpkg-query','-W','libclang-18-dev']),clang=run(['clang-18','--version']),qualified=False,inputSent=False,sourcePins=pins,patches=hashes,lockSha256=lock_hash,librarySha256=hashlib.sha256(library.read_bytes()).hexdigest(),probeSha256=hashlib.sha256((artifacts/'native-surface-probe').read_bytes()).hexdigest(),rust=run(['rustc','+1.99.0','--version']),elapsedSeconds=time.monotonic()-started)
 (artifacts/'ubuntu26-native-dependency-provenance.json').write_text(json.dumps(record,indent=2)+'\n')
