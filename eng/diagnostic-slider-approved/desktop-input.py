@@ -77,7 +77,11 @@ try:
         auth=pathlib.Path(xargs[xargs.index('-auth')+1]).resolve()
         assert auth.is_relative_to((root/'runtime').resolve()) and auth.is_file()
         environment.update(DISPLAY=xargs[1],WAYLAND_DISPLAY='progpu-owned-wayland',XAUTHORITY=str(auth))
-        record['overview'] = close_owned_overview(command, child, approved=approval['approved'])
+        def read_startup():
+            # A separate read handle must not seek the child's shared log FD.
+            with (root/'compositor.log').open('rb') as captured:
+                return captured.read(262145)
+        record['overview'] = close_owned_overview(command, child, approved=approval['approved'], read_startup=read_startup)
         import importlib.util
         spec=importlib.util.spec_from_file_location('original_slider',pathlib.Path(__file__).parent/'run-input.py')
         runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)

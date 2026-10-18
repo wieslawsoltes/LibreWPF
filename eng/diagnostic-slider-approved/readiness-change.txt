@@ -1,0 +1,6 @@
+Original failure retained: run39106597661, artifact12128603229. DisplayConfig became available before GNOME startup-complete. The early false Overview observation was invalidated by the remaining startup animation.
+
+The corrected helper reads only the owned compositor log until the complete GNOME startup marker. This wait consumes the existing five-second deadline. The same unique-owner verification and at most one approved Overview=false request follow. No application, input sequence, native guards, capture mechanism, candidate bytes or time limits change. Original authorization receipt and failed run remain retained separately.
+
+21 offline controls passed before binding the existing human approval, including all15 original controls and six startup readiness controls.
+GNOME50.1 sources: https://github.com/GNOME/gnome-shell/blob/50.1/js/ui/main.js and https://github.com/GNOME/gnome-shell/blob/50.1/js/ui/layout.js

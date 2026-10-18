@@ -3,11 +3,33 @@ import re
 import time
 
 
-def close_owned_overview(command, child, *, approved, clock=time.monotonic, sleep=time.sleep):
+STARTUP_MARKER = re.compile(rb'^GNOME Shell-Message: [0-9:.]+: GNOME Shell started at [^\r\n]+\n', re.MULTILINE)
+
+
+def close_owned_overview(command, child, *, approved, read_startup, clock=time.monotonic, sleep=time.sleep):
     if approved is not True:
         raise PermissionError('Hosted overview/input proposal has not been approved')
     deadline = clock() + 5
     record = {'setAttempts': 0, 'observations': [], 'completed': False}
+
+    # DisplayConfig exists before the startup animation can open Overview.
+    # Observe this owned child's complete startup marker before spending the
+    # already-authorized Set. This consumes the same five-second budget.
+    while True:
+        if clock() >= deadline:
+            raise TimeoutError('Owned overview startup exceeded five seconds')
+        if child.poll() is not None:
+            raise RuntimeError('Owned compositor exited')
+        captured = read_startup()
+        if not isinstance(captured, bytes) or len(captured) > 262144:
+            raise RuntimeError('Invalid bounded owned compositor output')
+        if clock() >= deadline:
+            raise TimeoutError('Owned overview startup exceeded five seconds')
+        marker = STARTUP_MARKER.search(captured)
+        if marker:
+            record['startupCompleteMarker'] = marker[0].decode('utf-8', errors='strict').rstrip('\n')
+            break
+        sleep(min(.05, max(0, deadline-clock())))
 
     def call(args):
         remaining = deadline - clock()
