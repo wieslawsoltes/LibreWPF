@@ -52,3 +52,12 @@ an explicit runtime root. The original no-separator case selected no assets;
 the corrected control retains the complete payload inventory in either form.
 It does not execute a Linux application. Package-mode SDK applications retain
 normal NuGet runtime selection; no source-root inference replaces package identity.
+
+The source integration selects ProGPU
+`a37f235057ee58b26b3322864c62dfeb1d041715` after its entire
+[Build 39093685811](https://github.com/wieslawsoltes/ProGPU/actions/runs/39093685811)
+passed all 61 jobs and all 70 checks on that head passed. Both original Linux
+runtime archives match their GitHub digests and pass the staging helper's exact
+producer, dependency, ELF, license and byte validation. All 56 source-asset
+evaluations pass with these files. This qualifies the selected producer and
+asset selection; it does not qualify the final LibreWPF package application.

@@ -4,25 +4,31 @@ The LibreWPF preview release uses the package list in `eng/progpu-preview-packag
 That package set is what users need to consume the custom `LibreWPF.Sdk` and run normal WPF
 projects on the ProGPU/Silk.NET platform.
 
-The preview.70 candidate selects merged ProGPU #390 at the exact tested commit
-`cc1b1a754fd65370e1b419f370bec479347adce8`.
-[Build 39027481242](https://github.com/wieslawsoltes/ProGPU/actions/runs/39027481242)
-passed all 59 jobs and all 69 combined checks passed. This producer retains
-ordered DXC queries and exact font-owned VDMX device metrics used by canonical
-Forms autoscaling. Its tree matches merge commit
-`3e63ecc84f751a2c6c98ee1d3b5d538188ece327` on `main`; staging still requires the
-successful Build at the exact pinned commit, never a tree-equivalence substitute.
+The preview.70 integration candidate selects ProGPU #392 at the exact tested
+commit `a37f235057ee58b26b3322864c62dfeb1d041715`.
+[Build 39093685811](https://github.com/wieslawsoltes/ProGPU/actions/runs/39093685811)
+passed all 61 jobs and all 70 combined checks passed. This producer adds owned
+Linux Xlib display selection and both packaged Linux runtime dependencies while
+retaining ordered DXC queries and exact font-owned VDMX metrics. Staging requires
+the successful Build at the exact pinned commit; the combined framework graph,
+original application acceptance, merge and public release remain pending.
 
-The matching LibreWinForms source is the exact tested commit
+The previous LibreWinForms source qualification used the exact tested commit
 `45a7233fdf9f2b7c7a91afc417041b96a184ee6d`, including merged #173, #175 and #176.
 [Build 39038321197](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/39038321197)
 passed all nine jobs, including the three visible package consumers, and
 [Docs 39038321193](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/39038321193)
-passed. Its ProGPU gitlink exactly matches the direct pin above. This source
+passed. Its ProGPU gitlink matched the previous direct pin
+`cc1b1a754fd65370e1b419f370bec479347adce8`. This source
 retains portable Graphics and lifetime repairs, original font autoscaling,
 canonical header content margins and actual source scrollbar painting.
 Its tree matches merge commit `63d27a4975aad6a7066e90e487103b3c432bfbb4` on the
 Forms default branch.
+
+The current Forms dependency update is awaiting its complete producer validation
+before this integration branch advances that gitlink. Until the two direct
+ProGPU pins match again, this intermediate graph must not be used for package
+qualification or release.
 
 The [original package grid pair 39040991568](https://github.com/wieslawsoltes/LibreWinForms/actions/runs/39040991568)
 passes all four input phases in 5.750 seconds for Microsoft and 15.390 seconds
