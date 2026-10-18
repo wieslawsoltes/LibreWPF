@@ -45,7 +45,6 @@ namespace System.Windows
                 IsHitTestVisible = false
             };
             glyph.Data.Freeze();
-            glyph.SetResourceReference(Path.StrokeProperty, SystemColors.ControlTextBrushKey);
             var close = new Button
             {
                 Content = glyph,
@@ -56,6 +55,12 @@ namespace System.Windows
             };
             AutomationProperties.SetName(close, "Close");
             AutomationProperties.SetAutomationId(close, "PortableWindowClose");
+            close.SetBinding(IsEnabledProperty, new Binding
+            {
+                Source = window,
+                Path = new PropertyPath(Window.IsPortableCaptionCloseEnabledProperty)
+            });
+            glyph.SetBinding(Path.StrokeProperty, new Binding(nameof(Control.Foreground)) { Source = close });
             close.Click += (_, _) => _window.Close();
             SetColumn(close, 1);
             Children.Add(close);

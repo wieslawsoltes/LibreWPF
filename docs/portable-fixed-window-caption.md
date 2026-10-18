@@ -71,3 +71,29 @@ packages. Also validate real close, drag, modal blocking/restoration, title and
 style transitions, size-to-content and DPI against actual source/native geometry.
 Do not change global desktop button preferences, mutate another process's frame,
 weaken original capture assertions or use local shared VMs.
+
+## Close response policy
+
+The portable MessageBox previously initialized its close result to the default
+button when no Cancel response existed. That let a Yes/No window close as Yes
+without a response selection. The source now keeps cancellation separate from
+the default button: OK-only closes as OK; a Cancel response closes as Cancel;
+Yes/No and Abort/Retry/Ignore reject close requests until a response button is
+selected. The source-owned caption binds its Close enabled state to the same
+decision. OK-only marks its real OK button as the Escape/cancel target.
+
+[Microsoft's WPF MessageBox behavior table](https://learn.microsoft.com/en-gb/dotnet/desktop/wpf/windows/how-to-open-message-box?view=netdesktop-9.0)
+specifies disabled Close/Escape for YesNo, and OK/Cancel dismissal for the other
+original WPF combinations. The source controls exercise all seven supported
+button combinations, close requests through Window and SystemCommands, actual
+generated response-button dispatch and owner restoration. They do not establish
+native keyboard input or disabled chrome appearance on hosts using native frames.
+Those platform observations remain required.
+The complete 16-test source modal/caption gate passes with all seven response
+combinations and no skips after the change. The vector Close glyph follows the
+button foreground, including its theme-disabled color.
+
+Hosted run 39135181161 retains the original Motif assertion failure and adds one
+read-only image of its verified client. The first OK dialog visibly has its title,
+one Close button and no minimize/maximize buttons. It is a client-only diagnostic,
+not a substitute native frame or complete four-dialog/input qualification.

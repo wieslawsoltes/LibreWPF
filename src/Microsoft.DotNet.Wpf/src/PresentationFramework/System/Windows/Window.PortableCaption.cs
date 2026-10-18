@@ -9,6 +9,16 @@ namespace System.Windows
     {
         private PortableFixedWindowCaption _portableFixedCaption;
 
+        internal static readonly DependencyProperty IsPortableCaptionCloseEnabledProperty =
+            DependencyProperty.Register("IsPortableCaptionCloseEnabled", typeof(bool), typeof(Window),
+                new FrameworkPropertyMetadata(true));
+
+        internal bool IsPortableCaptionCloseEnabled
+        {
+            get => (bool)GetValue(IsPortableCaptionCloseEnabledProperty);
+            set => SetValue(IsPortableCaptionCloseEnabledProperty, value);
+        }
+
         protected override int VisualChildrenCount
             => base.VisualChildrenCount + (_portableFixedCaption == null ? 0 : 1);
 

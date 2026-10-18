@@ -1,3 +1,9 @@
+Portable MessageBox close availability retains cancellation separately from its
+default response. No-cancel choices reject close until an actual response; OK-only
+retains Escape dismissal. Source caption Close observes the same enabled policy;
+ordinary windows remain enabled. Preserve real response/owner lifetimes and the
+separate native chrome/input gates. See docs/portable-fixed-window-caption.md.
+
 Source-owned fixed captions require the live host's explicit capability and
 ordinary NoResize/decorated source policy. Preserve public style, Content/template,
 actual native client/outer frame accounting and application WindowChrome priority.

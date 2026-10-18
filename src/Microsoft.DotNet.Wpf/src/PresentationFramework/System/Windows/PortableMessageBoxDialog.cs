@@ -52,7 +52,9 @@ namespace System.Windows
             Window ownerWindow = ResolveOwner(owner);
             MessageBoxResult[] buttonResults = GetButtonResults(button);
             MessageBoxResult effectiveDefault = GetDefaultResult(buttonResults, defaultResult);
-            MessageBoxResult selectedResult = GetCloseResult(buttonResults, effectiveDefault);
+            MessageBoxResult closeResult = GetCloseResult(buttonResults);
+            MessageBoxResult selectedResult = closeResult;
+            bool responseSelected = false;
 
             double dialogHeight = EstimateDialogHeight(messageBoxText);
             var dialog = new Window
@@ -72,6 +74,14 @@ namespace System.Windows
 
             dialog.SetResourceReference(Control.BackgroundProperty, SystemColors.WindowBrushKey);
             dialog.SetResourceReference(Control.ForegroundProperty, SystemColors.WindowTextBrushKey);
+            dialog.IsPortableCaptionCloseEnabled = closeResult != MessageBoxResult.None;
+            dialog.Closing += (_, args) =>
+            {
+                // A close request must never become the default affirmative
+                // response. Yes/No and Abort/Retry/Ignore require a real choice.
+                if (!responseSelected && closeResult == MessageBoxResult.None)
+                    args.Cancel = true;
+            };
 
             Point position = GetDialogPosition(ownerWindow, DialogWidth, dialogHeight);
             dialog.Left = position.X;
@@ -98,7 +108,11 @@ namespace System.Windows
                 icon,
                 effectiveDefault,
                 options,
-                buttonResult => selectedResult = buttonResult);
+                buttonResult =>
+                {
+                    selectedResult = buttonResult;
+                    responseSelected = true;
+                });
             dialog.Content = content;
 
             dialog.ShowDialog();
@@ -242,7 +256,8 @@ namespace System.Windows
                     Margin = new Thickness(i == 0 ? 0 : 8, 0, 0, 0),
                     Padding = new Thickness(12, 3, 12, 3),
                     IsDefault = buttonResult == defaultResult,
-                    IsCancel = buttonResult == MessageBoxResult.Cancel
+                    IsCancel = buttonResult == MessageBoxResult.Cancel ||
+                        (buttonResults.Length == 1 && buttonResult == MessageBoxResult.OK)
                 };
                 buttonControl.Click += delegate
                 {
@@ -443,9 +458,7 @@ namespace System.Windows
             return Math.Max(MinimumDialogHeight, Math.Min(MaximumDialogHeight, estimatedHeight));
         }
 
-        private static MessageBoxResult GetCloseResult(
-            MessageBoxResult[] buttonResults,
-            MessageBoxResult defaultResult)
+        private static MessageBoxResult GetCloseResult(MessageBoxResult[] buttonResults)
         {
             for (int i = 0; i < buttonResults.Length; i++)
             {
@@ -455,7 +468,8 @@ namespace System.Windows
                 }
             }
 
-            return defaultResult;
+            return buttonResults.Length == 1 && buttonResults[0] == MessageBoxResult.OK
+                ? MessageBoxResult.OK : MessageBoxResult.None;
         }
 
         private static string GetButtonText(MessageBoxResult result)

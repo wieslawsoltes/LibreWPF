@@ -70,6 +70,14 @@ public partial class PortableWindowActivationServiceTests
         {
             var content = window.Content;
             var close = Assert.Single(Caption(window)!.Children.OfType<Button>());
+            window.IsPortableCaptionCloseEnabled = false;
+            Assert.False(close.IsEnabled);
+            window.IsPortableCaptionCloseEnabled = true;
+            Assert.True(close.IsEnabled);
+            // Theme-disabled foreground must reach the vector X, rather than
+            // retaining a locally fixed enabled text brush.
+            close.Foreground = Brushes.Gray;
+            Assert.Same(close.Foreground, Assert.IsType<System.Windows.Shapes.Path>(close.Content).Stroke);
             bool cancel = true;
             int requests = 0;
             window.Closing += (_, e) => { requests++; e.Cancel = cancel; };
