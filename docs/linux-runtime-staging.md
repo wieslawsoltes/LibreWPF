@@ -77,3 +77,11 @@ explicit runtime override, duplicate imports, executable/test admission, library
 and disabled opt-outs, three actual RIDs and an unavailable RID. They compare
 complete original file hashes and output/publish metadata. Native execution and
 final application acceptance remain separate from these asset controls.
+
+Canonical Forms integration also requires `external/LibreWinForms` to declare
+that same exact ProGPU pin. The first `66391c64b` CI run correctly rejected the
+older nested `a37f2350` pin before building. The coordinated Forms revision now
+declares `905d52ac1`; WPF consumes that revision with its own identical producer.
+The equality gate remains unchanged, and the original rejected run is retained.
+Forms' complete 993-test Drawing source suite passes against this shared producer;
+fresh whole CI remains required for both coordinated consumer heads.
