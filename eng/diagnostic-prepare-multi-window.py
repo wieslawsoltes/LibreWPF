@@ -22,7 +22,7 @@ try:
     for key in list(env):
         if key.startswith(('PROGPU','ProGpu','NUGET_','MSBuildSDK')):env.pop(key)
     env.update(NUGET_PACKAGES=str(root/'packages'),NUGET_HTTP_CACHE_PATH=str(root/'http-cache'),DOTNET_CLI_HOME=str(root/'cli-home'),MSBUILDDISABLENODEREUSE='1')
-    command=['dotnet','build','MultiWindow.csproj','-c','Release','-r','linux-arm64','-m:1','-nr:false','-p:UseSharedCompilation=false','-p:RestorePackagesPath='+str(root/'packages')]
+    command=['dotnet','build','MultiWindow.csproj','-c','Release','-r','linux-arm64','-m:1','-nr:false','-p:UseSharedCompilation=false','-p:RestorePackagesPath='+str(root/'packages'),'-o',str(root/'application')]
     record['command']=command;start=time.monotonic()
     with (root/'build.log').open('w') as log:result=subprocess.run(command,cwd=root,env=env,stdout=log,stderr=subprocess.STDOUT,timeout=600)
     record.update(buildExitCode=result.returncode,buildSeconds=time.monotonic()-start)
@@ -33,8 +33,8 @@ try:
         record['packages'][package]={'version':version,'sha256':sha(archive)}
         if package.startswith(('progpu','librewpf','librewinforms')):
             expected=inputs[package];assert version==expected['version'] and sha(archive)==expected['sha256'],package
-    out=root/'bin/Release/net10.0-windows/linux-arm64'
-    app=out/'MultiWindow.dll';assert app.is_file()
+    out=root/'application'
+    app=out/'MultiWindow.dll';record['emittedFiles']=[str(p.relative_to(root)) for p in root.rglob('MultiWindow.dll')];assert app.is_file(),'Expected explicit application output absent'
     for path in sorted(out.rglob('*')):
         if path.is_file():record['outputs'][str(path.relative_to(out))]=sha(path)
     for name,expected in record['sources'].items():assert sha(root/name)==expected
