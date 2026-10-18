@@ -1,3 +1,24 @@
+Explicit source Close enabled state uses the typed optional activation callback
+and the matching ProGPU enabled-state primitive, never CanClose visibility.
+Preserve ordinary unselected windows, same-activation ownership, local-policy
+clear/reset and legacy registration clearing. A missing native host returns false;
+source cancellation remains independent. Match the rebuilt producer before pin
+or package qualification. See docs/portable-fixed-window-caption.md.
+
+Portable MessageBox close availability retains cancellation separately from its
+default response. No-cancel choices reject close until an actual response; OK-only
+retains Escape dismissal. Source caption Close observes the same enabled policy;
+ordinary windows remain enabled. Preserve real response/owner lifetimes and the
+separate native chrome/input gates. See docs/portable-fixed-window-caption.md.
+
+Source-owned fixed captions require the live host's explicit capability and
+ordinary NoResize/decorated source policy. Preserve public style, Content/template,
+actual native client/outer frame accounting and application WindowChrome priority.
+Caption dimensions belong to the owned visual, never a fabricated native inset.
+Close, drag and menu actions retain the existing source/host lifetime and input
+gates. Original GNOME captures and both renderer/package gates remain required;
+see docs/portable-fixed-window-caption.md. Source controls are not qualification.
+
 X11 source outer dimensions are reconciled after actual native Show using one
 live frame measurement for both axes. Preserve empty/unavailable distinction,
 normal-state admission, source dimension precedence and exact shown-window
@@ -18,6 +39,13 @@ source/dependency receipts, original hashes and extensionless licenses; validate
 the full candidate before publication and never overwrite a consumer or cache.
 The helper does not advance a pin or qualify a partial producer. See
 docs/linux-runtime-staging.md; original source application gates remain required.
+
+Source host tests opt into the actual staged native payload at their executable
+boundary. Preserve explicit root ownership, portable/RID loader layouts, original
+notices, SDK exclusion and repeated-import guards. Libraries and package consumers
+retain their separate policies. Only the exact whole-qualified producer supplies
+these files; asset controls do not qualify source/native application behavior.
+See docs/linux-runtime-staging.md.
 
 Passive Showcase completion queues Application.Shutdown with the original result
 on the source owner dispatcher after persisting its receipt. Never call worker

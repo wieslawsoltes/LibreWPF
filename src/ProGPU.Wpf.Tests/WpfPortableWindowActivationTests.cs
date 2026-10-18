@@ -191,6 +191,7 @@ public sealed partial class WpfPortableWindowActivationTests
         Assert.NotNull(service.Callbacks.SetPosition);
         Assert.NotNull(service.Callbacks.SetTopmost);
         Assert.NotNull(service.Callbacks.SetWindowBorder);
+        Assert.NotNull(service.Callbacks.SetCloseButtonEnabled);
         Assert.NotNull(service.Callbacks.GetFrameInsets);
         Assert.NotNull(service.Callbacks.Close);
         Assert.NotNull(service.Callbacks.Run);
