@@ -45,6 +45,58 @@ function Test-X64DotNetHost([string] $path) {
     }
 }
 
+function Get-WpfSourceTestCoreBuild {
+    $sourceProject = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj"
+    # SDK project references remove RuntimeIdentifier/SelfContained for this
+    # RID-agnostic library. The test graph therefore builds a distinct x64
+    # output from the earlier explicit win-x64 package-production invocation.
+    $evaluation = & $env:DOTNET_HOST_PATH msbuild $sourceProject -nologo -target:GetTargetFrameworks `
+        -getItem:_ThisProjectBuildMetadata -getProperty:TargetPath,PlatformTarget,RuntimeIdentifier,TargetFramework `
+        "-p:Configuration=$Configuration" -p:Platform=x64
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to evaluate the x64 source test project reference.' }
+    $result = $evaluation -join [Environment]::NewLine | ConvertFrom-Json
+    $metadata = @($result.Items._ThisProjectBuildMetadata)
+    if ($metadata.Count -ne 1 -or $metadata[0].IsRidAgnostic -ne 'true' -or
+        $result.Properties.PlatformTarget -ne 'x64' -or $result.Properties.RuntimeIdentifier -ne '' -or
+        $result.Properties.TargetFramework -ne 'net10.0' -or
+        [string]::IsNullOrWhiteSpace($result.Properties.TargetPath)) {
+        throw 'The source test reference no longer has the required RID-agnostic x64 build contract.'
+    }
+    return $result
+}
+
+function Assert-WpfSourceTestClosure([string[]] $ExpectedInputs, [string[]] $RequiredX64Inputs,
+    [string] $TestDirectory, [string] $Evidence) {
+    $files = @()
+    foreach ($expected in $ExpectedInputs) {
+        $actual = Join-Path $TestDirectory ([IO.Path]::GetFileName($expected))
+        $entry = [ordered]@{ expected = $expected; actual = $actual; expectedSha256 = $null; actualSha256 = $null
+            expectedX64 = $null; actualX64 = $null; mismatches = @() }
+        try {
+            if (Test-Path $expected -PathType Leaf) { $entry.expectedSha256 = (Get-FileHash $expected -Algorithm SHA256).Hash }
+            else { $entry.mismatches += 'Expected source file is missing.' }
+            if (Test-Path $actual -PathType Leaf) { $entry.actualSha256 = (Get-FileHash $actual -Algorithm SHA256).Hash }
+            else { $entry.mismatches += 'Test closure file is missing.' }
+            if ($null -ne $entry.expectedSha256 -and $null -ne $entry.actualSha256 -and $entry.expectedSha256 -ne $entry.actualSha256) {
+                $entry.mismatches += 'Source and test closure hashes differ.'
+            }
+            if ($expected -in $RequiredX64Inputs) {
+                $entry.expectedX64 = Test-X64DotNetHost $expected
+                $entry.actualX64 = Test-X64DotNetHost $actual
+                if (!$entry.expectedX64 -or !$entry.actualX64) { $entry.mismatches += 'A required native image is not x64.' }
+            }
+        }
+        catch { $entry.mismatches += $_.Exception.Message }
+        $files += $entry
+    }
+    $failed = @($files | Where-Object { $_.mismatches.Count -ne 0 })
+    @{ passed = $failed.Count -eq 0; files = $files } | ConvertTo-Json -Depth 6 |
+        Set-Content (Join-Path $Evidence 'x64-closure.json')
+    if ($failed.Count -ne 0) {
+        throw "The source test closure does not match its explicit x64 build: $($failed.actual -join ', ')"
+    }
+}
+
 function Initialize-BuildSdk {
     $sdkVersion = [string]$globalJson.sdk.version
     if ([string]::IsNullOrWhiteSpace($sdkVersion)) {
@@ -308,7 +360,11 @@ if ($ValidateDesktopTransform) {
     if (!(Test-Path $testAssembly -PathType Leaf)) {
         throw "The x64 source test assembly is missing: $testAssembly"
     }
-    $expectedCore = Join-Path $repoRoot "artifacts/bin/PresentationCore/x64/$Configuration/net10.0/win-x64/PresentationCore.dll"
+    $evidence = Join-Path $repoRoot "artifacts/desktop-transform-source"
+    New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+    $sourceCoreBuild = Get-WpfSourceTestCoreBuild
+    $sourceCoreBuild | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $evidence "source-core-build.json")
+    $expectedCore = $sourceCoreBuild.Properties.TargetPath
     $expectedForwarder = Join-Path $repoRoot "artifacts/bin/DirectWriteForwarder/x64/$Configuration/net10.0/DirectWriteForwarder.dll"
     # C++/CLI's native IJW host is a packaging asset, not a transitive managed
     # project reference. Stage this exact restored x64 input into our test output.
@@ -321,28 +377,15 @@ if ($ValidateDesktopTransform) {
     if ($properties.WpfRuntimeIdentifier -ne 'win-x64') { throw 'The source test native payload selected a different RID.' }
     $nativeDirectory = Join-Path $properties.ArtifactsPackagingDir "$($properties.GitHubTransportPackageName)/runtimes/win-x64/native"
     $expectedInputs = @($expectedCore, $expectedForwarder, $x64IjwHost)
+    $requiredX64Inputs = @($expectedForwarder, $x64IjwHost)
     $vcRuntimeName = if ($Configuration -eq 'Debug') { 'vcruntime140d.dll' } else { 'vcruntime140_cor3.dll' }
     foreach ($nativeName in @('D3DCompiler_47_cor3.dll', 'PresentationNative_cor3.dll',
             $vcRuntimeName, 'PenImc_cor3.dll', 'wpfgfx_cor3.dll')) {
         $native = Join-Path $nativeDirectory $nativeName
-        if (!(Test-X64DotNetHost $native)) { throw "The source native payload is not an x64 PE image: $native" }
         $expectedInputs += $native
+        $requiredX64Inputs += $native
     }
-    $closure = [ordered]@{}
-    foreach ($expected in $expectedInputs) {
-        $actual = Join-Path $testDirectory ([IO.Path]::GetFileName($expected))
-        if (!(Test-Path $expected -PathType Leaf) -or !(Test-Path $actual -PathType Leaf) -or
-            (Get-FileHash $expected -Algorithm SHA256).Hash -ne (Get-FileHash $actual -Algorithm SHA256).Hash) {
-            throw "The source test closure does not match its explicit x64 build: $actual"
-        }
-        $closure[$actual] = (Get-FileHash $actual -Algorithm SHA256).Hash
-    }
-    if (!(Test-X64DotNetHost $expectedForwarder) -or !(Test-X64DotNetHost $x64IjwHost)) {
-        throw "The source test native dependencies are not x64 PE images."
-    }
-    $evidence = Join-Path $repoRoot "artifacts/desktop-transform-source"
-    New-Item -ItemType Directory -Path $evidence -Force | Out-Null
-    $closure | ConvertTo-Json | Set-Content (Join-Path $evidence "x64-closure.json")
+    Assert-WpfSourceTestClosure $expectedInputs $requiredX64Inputs $testDirectory $evidence
     $previousBackend = $env:LIBREWPF_TEST_MEDIA_BACKEND
     $previousExpectedCore = $env:LIBREWPF_DESKTOP_QUERY_EXPECTED_CORE
     try {
