@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "nativeRevision": "33133da4ec5a0174cb21539ef2d3346f75200411",
+  "headersRevision": "aef5e428a1fdab2ea770581ae7c95d8779984e0a",
+  "wgpuRevision": "87576b72b37c6b78b41104eb25fc31893af94092",
+  "runtimeSha256": "bf19f91a7fcbe78044ea590a07fb554a963dc0609e8e9211d96d1050b22c9653",
+  "files": {
+    "native-resolve-scissor-probe.c": "3b408a243fa6b53fad9732f8703b480688cbdb3eaaca8184de0f29ca204c25ff",
+    "consumers.json": "bcff1082c9ed3c3d617759ff5495314cad75399bba94bfe5b9bf964f29c3bd40",
+    "stage_frozen.py": "c010758ffec31294bca4c36845570b6ec270a033c0f0b980a6665a770647e537",
+    "headers-LICENSE": "17420d366df90c474bd70ad474694956cdb7fc64be70387a49a45458c4152d22",
+    "native-surface-probe.c": "bfbe98962ac1584e4116219b7e1493707707076c28c8d5ede96e31e8f140a06a",
+    "wgpu.h": "a8dd002ecfa4d3ca6b8ca2a74bf7733544b68deec279ae1cde3c33acfbeef8bc",
+    "native-LICENSE.MIT": "c7fea58d1cfe49634cd92e54fc10a9d871f4b275321a4cd8c09e449122caaeb4",
+    "native-LICENSE.APACHE": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+    "webgpu.h": "defb965756966d04186f80fb193994cfa70b375247da7a34d20608662216a50f"
+  },
+  "hostAdmissionOnlyChange": {
+    "originalProbeSha256": "56b409ad5c9e9533afe52824d3132656a807f6b20eac2c98cb72423f7dd6d92e",
+    "temporaryProbeSha256": "3b408a243fa6b53fad9732f8703b480688cbdb3eaaca8184de0f29ca204c25ff",
+    "originalRepository": "wieslawsoltes/ProGPU",
+    "diagnosticRepository": "wieslawsoltes/LibreWPF",
+    "renderOperationsUnchanged": true
+  }
+}

@@ -1,0 +1,33 @@
+name: Original GLES resolve-scissor diagnostic
+on:
+  pull_request:
+    branches: [fix/x11-fixed-window-caption]
+    paths:
+      - '.github/workflows/gles-resolve-scissor-original.yml'
+      - 'eng/diagnostics/gles-resolve-scissor-original/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original:
+    if: github.head_ref == 'diag/gles-resolve-scissor-original-20261028'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Native compile and isolated X server prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang libx11-dev libegl1 libgl1-mesa-dri xvfb xauth
+      - name: Original runtime only, bounded authored pixel control
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: python3 eng/diagnostics/gles-resolve-scissor-original/run.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: original-gles-resolve-scissor
+          path: eng/diagnostics/gles-resolve-scissor-original/evidence
+          if-no-files-found: error
