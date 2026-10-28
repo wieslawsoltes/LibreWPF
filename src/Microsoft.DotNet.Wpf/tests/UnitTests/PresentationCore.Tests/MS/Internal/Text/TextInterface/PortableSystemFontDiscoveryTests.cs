@@ -53,7 +53,25 @@ public sealed class PortableSystemFontDiscoveryTests : IDisposable
     public void RepeatedSystemCollectionFileRetainsEveryOriginalFaceSlot()
     {
         string child = Directory.CreateDirectory(Path.Combine(_root, "Supplemental")).FullName;
-        string path = Path.Combine(child, "two-faces.ttc");
+        string path = CreateTwoFaceCollection(child);
+        var factory = new CountingFontSourceFactory();
+
+        FontCollection collection = FontCollection.FromUris(
+            Factory.EnumerateSystemFontUris(Path.Combine(_root, "missing.ttf"), new[] { child, _root }), factory);
+
+        Assert.Equal(new Uri(path).AbsoluteUri, Assert.Single(factory.Sources));
+        Assert.Equal(1u, collection.FamilyCount);
+        Assert.Equal(new uint[] { 0, 1 }, collection[0].Select(font => font.FontData.FaceIndex));
+        Assert.All(collection[0], font =>
+        {
+            Assert.Equal(FontFaceType.TrueTypeCollection, font.FontData.FaceType);
+            Assert.False(font.FontData.IsFontDataResident);
+        });
+    }
+
+    private static string CreateTwoFaceCollection(string directory)
+    {
+        string path = Path.Combine(directory, "two-faces.ttc");
         byte[] original = File.ReadAllBytes(FontPath);
         // Two valid collection face slots alias the same unchanged SFNT tables.
         // Keep their separate original indexes; discovery deduplicates files only.
@@ -72,19 +90,7 @@ public sealed class PortableSystemFontDiscoveryTests : IDisposable
             BinaryPrimitives.WriteUInt32BigEndian(offset, checked(BinaryPrimitives.ReadUInt32BigEndian(offset) + headerSize));
         }
         File.WriteAllBytes(path, collectionBytes);
-        var factory = new CountingFontSourceFactory();
-
-        FontCollection collection = FontCollection.FromUris(
-            Factory.EnumerateSystemFontUris(Path.Combine(_root, "missing.ttf"), new[] { child, _root }), factory);
-
-        Assert.Equal(new Uri(path).AbsoluteUri, Assert.Single(factory.Sources));
-        Assert.Equal(1u, collection.FamilyCount);
-        Assert.Equal(new uint[] { 0, 1 }, collection[0].Select(font => font.FontData.FaceIndex));
-        Assert.All(collection[0], font =>
-        {
-            Assert.Equal(FontFaceType.TrueTypeCollection, font.FontData.FaceType);
-            Assert.False(font.FontData.IsFontDataResident);
-        });
+        return path;
     }
 
     [Fact]
@@ -98,6 +104,104 @@ public sealed class PortableSystemFontDiscoveryTests : IDisposable
 
         Assert.Equal(new[] { uri.AbsoluteUri, uri.AbsoluteUri }, factory.Sources);
         Assert.Equal(2u, collection[0].Count);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(40)]
+    public void OwnedSystemCatalogPreservesOriginalMetadataAndLazyFaceOwnership(int fileCount)
+    {
+        string otherFont = Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "NotoSansSymbols2-Regular.ttf");
+        var uris = new List<Uri>();
+        for (int index = fileCount - 1; index >= 0; index--)
+        {
+            string path = Path.Combine(_root, $"font-{index:D2}.ttf");
+            File.Copy(index % 2 == 0 ? FontPath : otherFont, path);
+            uris.Add(new Uri(path));
+        }
+        string collectionPath = CreateTwoFaceCollection(_root);
+        uris.Insert(1, new Uri(collectionPath));
+        string malformed = Path.Combine(_root, "malformed.ttf");
+        File.WriteAllBytes(malformed, new byte[] { 1, 2, 3 });
+        uris.Insert(2, new Uri(malformed));
+        uris.Add(new Uri(Path.Combine(_root, "missing.ttf")));
+        var factory = new FontSourceFactory();
+
+        FontCollection original = FontCollection.FromUris(uris, factory);
+        FontCollection current = FontCollection.FromSystemUris(uris, factory);
+
+        Assert.Equal(original.FamilyCount, current.FamilyCount);
+        for (uint family = 0; family < original.FamilyCount; family++)
+        {
+            Assert.Equal(original[family].Count, current[family].Count);
+            var expectedFaces = original[family].Select(font => font.FontData).ToArray();
+            var actualFaces = current[family].Select(font => font.FontData).ToArray();
+            for (int index = 0; index < expectedFaces.Length; index++)
+            {
+                PortableFontData expected = expectedFaces[index], actual = actualFaces[index];
+                Assert.Equal(expected.SourceUri.AbsoluteUri, actual.SourceUri.AbsoluteUri);
+                Assert.Equal(expected.FaceIndex, actual.FaceIndex);
+                Assert.Equal(expected.FamilyName, actual.FamilyName);
+                Assert.Equal(expected.FaceName, actual.FaceName);
+                Assert.Equal(expected.FullName, actual.FullName);
+                Assert.Equal((expected.Metrics.DesignUnitsPerEm, expected.Metrics.Ascent, expected.Metrics.Descent,
+                    expected.Metrics.LineGap, expected.Metrics.CapHeight, expected.Metrics.XHeight,
+                    expected.Metrics.UnderlinePosition, expected.Metrics.UnderlineThickness,
+                    expected.Metrics.StrikethroughPosition, expected.Metrics.StrikethroughThickness),
+                    (actual.Metrics.DesignUnitsPerEm, actual.Metrics.Ascent, actual.Metrics.Descent,
+                    actual.Metrics.LineGap, actual.Metrics.CapHeight, actual.Metrics.XHeight,
+                    actual.Metrics.UnderlinePosition, actual.Metrics.UnderlineThickness,
+                    actual.Metrics.StrikethroughPosition, actual.Metrics.StrikethroughThickness));
+                Assert.Equal(expected.Weight, actual.Weight);
+                Assert.Equal(expected.Stretch, actual.Stretch);
+                Assert.Equal(expected.Style, actual.Style);
+                Assert.Equal(expected.FaceType, actual.FaceType);
+                Assert.Equal(expected.GlyphCount, actual.GlyphCount);
+                Assert.Equal(expected.IsSymbolFont, actual.IsSymbolFont);
+                Assert.Equal(expected.Version, actual.Version);
+                for (ushort name = 0; name <= 19; name++)
+                    Assert.Equal(expected.GetNameStrings(name, name, "missing").Select(pair => (pair.Key.Name, pair.Value)).ToArray(),
+                        actual.GetNameStrings(name, name, "missing").Select(pair => (pair.Key.Name, pair.Value)).ToArray());
+                Assert.False(expected.IsFontDataResident);
+                Assert.False(actual.IsFontDataResident);
+            }
+        }
+        PortableFontData selected = current[0].First().FontData;
+        _ = selected.GetGlyphIndex(0);
+        Assert.True(selected.IsFontDataResident);
+        Assert.All(current[0].Skip(1), font => Assert.False(font.FontData.IsFontDataResident));
+    }
+
+    [Fact]
+    public void CustomSystemFactoryKeepsSequentialCallerCallbacksAndDuplicates()
+    {
+        var uri = new Uri(CopyFont(_root, "custom.ttf"));
+        var factory = new CountingFontSourceFactory();
+        FontCollection collection = FontCollection.FromSystemUris(Enumerable.Repeat(uri, 40), factory);
+        Assert.Equal(40, factory.Sources.Count);
+        Assert.All(factory.Threads, thread => Assert.Equal(Environment.CurrentManagedThreadId, thread));
+        Assert.Equal(40u, collection[0].Count);
+    }
+
+    [Fact]
+    public void CustomSystemFactoryFatalErrorKeepsOriginalExceptionAndCallbackBoundary()
+    {
+        var uri = new Uri(CopyFont(_root, "custom.ttf"));
+        var error = new InvalidOperationException("Original source failure");
+        var factory = new FailingFontSourceFactory(error);
+        Assert.Same(error, Assert.Throws<InvalidOperationException>(() =>
+            FontCollection.FromSystemUris(Enumerable.Repeat(uri, 40), factory)));
+        Assert.Equal(13, factory.Calls);
+    }
+
+    private sealed class FailingFontSourceFactory(Exception error) : IFontSourceFactory
+    {
+        internal int Calls { get; private set; }
+        public IFontSource Create(string uriString)
+        {
+            if (++Calls == 13) throw error;
+            return new FontSource(new Uri(uriString));
+        }
     }
 
     private static string FontPath => Path.Combine(AppContext.BaseDirectory, "LibreWPF", "Fonts", "LibreWPF.FluentSymbols.ttf");

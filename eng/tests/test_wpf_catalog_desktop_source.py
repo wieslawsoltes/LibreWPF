@@ -38,7 +38,7 @@ class SourceSelectorTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(calls), 6)
         self.assertEqual([call["args"][call["args"].index("--minimum-expected-tests") + 1] for call in calls],
-                         ["4", "3", "3", "7", "4", "3"])
+                         ["8", "3", "3", "7", "4", "3"])
         for call in calls:
             args = call["args"]
             self.assertEqual(call["backend"], "Portable")

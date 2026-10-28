@@ -20,7 +20,7 @@ fi
 export LIBREWPF_TEST_MEDIA_BACKEND=Portable
 evidence="${repo_root}/artifacts/catalog-desktop-source"
 for selection in \
-  "PresentationCore.Tests.MS.Internal.Text.TextInterface.PortableSystemFontDiscoveryTests 4" \
+  "PresentationCore.Tests.MS.Internal.Text.TextInterface.PortableSystemFontDiscoveryTests 8" \
   "PresentationCore.Tests.MS.Internal.Text.TextInterface.PortableFontDataTests 3" \
   "MS.Internal.Text.TextInterface.Tests.PortableFontCollectionTests 3" \
   "System.Windows.PortableDesktopTransformQueryTests 7"; do
