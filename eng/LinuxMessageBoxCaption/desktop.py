@@ -90,8 +90,8 @@ try:
         import importlib.util
         spec=importlib.util.spec_from_file_location('original_multi_window',pathlib.Path(__file__).with_name('executor.py'))
         runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
-        record['applicationExecuted']=True
-        result=runner.run_case(environment,'mixed-wayland-x11')
+        record['applicationExecuted']=False
+        result=runner.run_case(environment,'mixed-wayland-x11',until)
         record['applicationPassed']=result['passed']
         record['completed'] = True
         child.terminate()
@@ -110,6 +110,7 @@ finally:
     if native_result.is_file():
         actual = json.loads(native_result.read_text())
         record['inputSent'] = actual.get('nativeEventAttempts', 0) > 0
+        record['applicationExecuted'] = actual.get('applicationExecuted', 'pid' in actual)
         record['nativeResult'] = {'path': str(native_result), 'sha256': hashlib.sha256(native_result.read_bytes()).hexdigest(), 'completed': actual.get('completed', False)}
     if child is not None and child.poll() is None:
         os.killpg(child.pid, signal.SIGKILL)

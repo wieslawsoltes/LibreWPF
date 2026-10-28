@@ -3,7 +3,7 @@ import hashlib,importlib.util,json,os,signal,struct,subprocess,time,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
-def run_case(environment,case):
+def run_case(environment,case,readiness_deadline):
     assert os.environ.get('RUNNER_ENVIRONMENT')=='github-hosted' and os.environ.get('GITHUB_REPOSITORY')=='wieslawsoltes/LibreWPF'
     assert os.environ.get('GITHUB_RUN_ATTEMPT')=='1'
     receipt=json.loads(Path('artifacts/paint-tree-build/receipt.json').read_text());app=Path(receipt['application']);renderer=os.environ['CAPTION_RENDERER'];assert receipt['renderer']==renderer
@@ -16,18 +16,27 @@ def run_case(environment,case):
     for key in list(env):
         if key.startswith(('PROGPU','ProGpu')) or key in ('EGL_PLATFORM','LIBGL_ALWAYS_SOFTWARE','GALLIUM_DRIVER','WGPU_BACKEND'):env.pop(key)
     env.update(PROGPU_WGPU_BACKEND='gl',PROGPU_BACKEND_DIAGNOSTICS='1')
-    old={key:os.environ.get(key) for key in ('DISPLAY','XAUTHORITY')};start=time.monotonic();deadline=start+60
-    result=dict(qualified=False,completed=False,passed=False,inputEventsSent=0,nativeEventAttempts=0,renderer=renderer,run=run,captures=[],cleanupErrors=[],forcedCleanup=False)
+    old={key:os.environ.get(key) for key in ('DISPLAY','XAUTHORITY')};started=time.monotonic();start=None;deadline=None
+    result=dict(qualified=False,completed=False,passed=False,applicationExecuted=False,inputEventsSent=0,nativeEventAttempts=0,renderer=renderer,run=run,captures=[],cleanupErrors=[],forcedCleanup=False)
     def remaining():
+        assert deadline is not None
         left=deadline-time.monotonic()
         if left<=0:raise TimeoutError('Original60second process limit')
         return left
     try:
         for key in old:os.environ[key]=env[key]
+        # The immutable helper's original contract preflights before launch.
+        # Keep all readiness inside the existing desktop's absolute30s budget.
+        readiness_left=readiness_deadline-time.monotonic()
+        if readiness_left<=0:raise TimeoutError('Original30second desktop startup limit')
+        with helper.protocol_timeout(min(10,readiness_left)):desktop=helper.X11Desktop()
+        if time.monotonic()>=readiness_deadline:raise TimeoutError('Original30second desktop startup limit')
+        result['protocolReadinessSeconds']=time.monotonic()-started
+        (out/'x11-preflight.json').write_text(json.dumps(desktop.provenance,indent=2)+'\n')
         with (out/'application.log').open('w') as log:
+            start=time.monotonic();deadline=start+60;desktop.deadline=deadline
             child=subprocess.Popen(['dotnet',str(app),str(out/'app'),run,renderer],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
-            result['pid']=child.pid
-            with helper.protocol_timeout(min(3,remaining())):desktop=helper.X11Desktop();desktop.deadline=deadline
+            result['pid']=child.pid;result['applicationExecuted']=True
             for index in range(4):
                 for stage in range(2):
                     f=out/'app'/f'snapshot-{index}-{stage}.json'
@@ -55,11 +64,11 @@ def run_case(environment,case):
             try:os.killpg(child.pid,signal.SIGKILL);child.wait(timeout=3)
             except BaseException as error:result['cleanupErrors'].append(repr(error))
         if desktop is not None:
-            try:desktop.display.close()
+            try:desktop.close()
             except BaseException as error:result['cleanupErrors'].append(repr(error))
         for key,value in old.items():
             if value is None:os.environ.pop(key,None)
             else:os.environ[key]=value
         if result['cleanupErrors']:result.update(passed=False,completed=False)
-        result['elapsedSeconds']=time.monotonic()-start;(out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+        result['elapsedSeconds']=None if start is None else time.monotonic()-start;result['totalElapsedSeconds']=time.monotonic()-started;(out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     return result
