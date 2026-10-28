@@ -1,160 +1,52 @@
-name: DIAGNOSTIC ONLY modal DXC startup
+name: Read-only source and retained dialog paint
 
 on:
   workflow_dispatch:
-  push:
-    branches: [test/hosted-modal-acceptance]
-    paths:
-      - .github/workflows/progpu-wpf-modal-startup-diagnostic.yml
-      - eng/WindowsModalDesktop/diagnose-startup.py
-      - eng/WindowsModalDesktop/diagnose-pair.py
-      - eng/WindowsModalDesktop/diagnose-native-startup.py
 
 permissions:
   contents: read
   actions: read
 
 jobs:
-  startup:
-    name: DIAGNOSTIC ONLY original reference then native startup crash
-    runs-on: windows-11-arm
-    timeout-minutes: 15
+  caption:
+    name: Programmatic paint observation (${{ matrix.renderer }})
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        renderer: [NativeMilWgpu, ManagedPortable]
     steps:
-      - name: Preserve committed source bytes in the disposable runner checkouts
-        shell: pwsh
-        run: |
-          git config --global core.autocrlf false
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git config --global core.eol lf
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/checkout@v4
         with:
-          ref: 5a4c4d310c17df9cd7da0d33b072b90e951de0cf
-          path: automation
           persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          ref: 0214bb4569553741244c4fdf10cb78a9dc90661f
-          path: original
-          persist-credentials: false
-          sparse-checkout: |
-            samples/ProGPU.Wpf.ModalInteractionApp
-            samples/ProGPU.Wpf.ModalInteractionApp.Windows
-            eng/progpu-wpf-modal-desktop.py
-          sparse-checkout-cone-mode: false
-      - uses: actions/checkout@v4
-        with:
-          repository: wieslawsoltes/LibreWinForms
-          ref: 1538b491c17d300387339adce7196700f41cf23a
-          path: forms-helper
-          persist-credentials: false
-          sparse-checkout: eng
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            10.0.x
-            10.0.201
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Validate original modal and shared hosted activation controls
-        shell: pwsh
+          dotnet-version: 10.0.201
+      - name: Prepare the original owned disposable desktop environment
+        run: python3 eng/LinuxMessageBoxCaption/prepare-desktop.py
+      - name: Install only the immutable helper's task-private Python dependencies
         run: |
-          python automation/eng/tests/test_wpf_modal_desktop_contract.py -v
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python automation/eng/WindowsGalleryClipboardConsumer/test_contract.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python automation/eng/tests/test_wpf_hosted_desktop_setup.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python automation/eng/tests/test_wpf_hosted_shell_escape.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python automation/eng/tests/test_wpf_hosted_start_activation.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python automation/eng/tests/test_wpf_modal_source_staging.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python automation/eng/tests/test_wpf_modal_candidate_packages.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Retain the exact successful candidate producer when selected
-        shell: pwsh
+          sudo apt-get install -y --no-install-recommends python3-venv
+          python3 -m venv --system-site-packages "$RUNNER_TEMP/caption-venv"
+          "$RUNNER_TEMP/caption-venv/bin/python" -m pip install --disable-pip-version-check --no-deps python-xlib==0.33 six==1.17.0
+          "$RUNNER_TEMP/caption-venv/bin/python" -c "import importlib.metadata; assert importlib.metadata.version('python-xlib') == '0.33'; assert importlib.metadata.version('six') == '1.17.0'"
+      - name: Restore only the exact already-compiled consumer
         env:
           GH_TOKEN: ${{ github.token }}
-          PRODUCER_HEAD: 5a4c4d310c17df9cd7da0d33b072b90e951de0cf
-          PRODUCER_BUILD: 38987640898
-          PRODUCER_DOCS: 38987640967
-        run: |
-          $values = @($env:PRODUCER_HEAD, $env:PRODUCER_BUILD, $env:PRODUCER_DOCS)
-          $selected = @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-          if ($selected.Count -ne 0 -and $selected.Count -ne 3) { throw 'Specify all three exact producer identities or none.' }
-          if ($selected.Count -eq 3) {
-            $inputs = Join-Path $env:RUNNER_TEMP 'modal-candidate-producer'
-            "CANDIDATE_INPUTS=$inputs" >> $env:GITHUB_ENV
-            python automation/eng/WindowsModalDesktop/candidate-packages.py `
-              --head $env:PRODUCER_HEAD --build $env:PRODUCER_BUILD --docs $env:PRODUCER_DOCS --output $inputs
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-      - name: Prepare original sources and verify the selected package closure
-        shell: pwsh
-        env:
-          MODAL_DX12_COMPILER: Dxc
-        run: |
-          $root = Join-Path $env:RUNNER_TEMP 'original-modal-pair'
-          "CASE_ROOT=$root" >> $env:GITHUB_ENV
-          $candidate = @()
-          if ($env:CANDIDATE_INPUTS) { $candidate = @('--candidate-inputs', $env:CANDIDATE_INPUTS) }
-          if ($env:MODAL_DX12_COMPILER -eq 'Dxc') { $candidate += @('--dx12-compiler', 'Dxc') }
-          python automation/eng/WindowsModalDesktop/prepare.py `
-            --source (Resolve-Path original).Path `
-            --forms-helper-checkout (Resolve-Path forms-helper).Path `
-            --output $root --dotnet (Get-Command dotnet).Source @candidate
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/checkout@v4
-        with:
-          path: diagnostics
-          persist-credentials: false
-          sparse-checkout: eng
-      - name: Verify transparent child observation
-        shell: pwsh
-        run: |
-          python diagnostics/eng/tests/test_wpf_modal_child_observation.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python automation/eng/tests/test_wpf_foreground_observation.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build and validate the bounded owned-process native debugger
-        shell: pwsh
-        run: |
-          & diagnostics/eng/build-showcase-native-debugger.ps1 -Architecture arm64 `
-            -OutputDirectory (Join-Path $env:RUNNER_TEMP 'modal-native-debugger')
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Prepare the original disposable hosted desktop
-        shell: pwsh
-        run: |
-          python automation/eng/WindowsModalDesktop/prepare-desktop.py `
-            --output (Join-Path $env:RUNNER_TEMP 'original-modal-desktop-preflight.json')
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run original reference then diagnose native portable startup
-        shell: pwsh
-        env:
-          PROGPU_WPF_TRACE_INPUT: '0'
-        run: |
-          python diagnostics/eng/WindowsModalDesktop/diagnose-native-startup.py `
-            --prepared $env:CASE_ROOT --producer-tools (Resolve-Path automation/eng/WindowsModalDesktop).Path `
-            --debugger (Join-Path $env:RUNNER_TEMP 'modal-native-debugger/ShowcaseNativeDebugger.exe') `
-            --output (Join-Path $env:RUNNER_TEMP 'modal-startup-diagnostic')
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Retain diagnostic failure and exact producer receipts
+        run: python3 eng/LinuxMessageBoxCaption/stage_frozen.py --renderer ${{ matrix.renderer }}
+      - name: Compile diagnostic observer against unchanged qualified payload
+        run: python3 eng/LinuxMessageBoxCaption/build_observer.py
+      - name: Observe source and retained paint without native input
+        run: timeout 150s dbus-run-session -- "$RUNNER_TEMP/caption-venv/bin/python" eng/LinuxMessageBoxCaption/desktop.py
+      - name: Preserve every original result and failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: diagnostic-modal-startup-${{ github.sha }}-${{ github.run_id }}
+          name: paint-tree-${{ matrix.renderer }}-${{ github.sha }}
           retention-days: 14
-          if-no-files-found: warn
+          if-no-files-found: error
           path: |
-            ${{ runner.temp }}/modal-startup-diagnostic/**
-            ${{ runner.temp }}/modal-candidate-producer/*.json
-            ${{ env.CASE_ROOT }}/preparation.json
-            ${{ env.CASE_ROOT }}/*-build.log
-            ${{ env.CASE_ROOT }}/runtime-inventory.txt
-            ${{ env.CASE_ROOT }}/runtime/**
-            ${{ env.CASE_ROOT }}/controller-result.json
-            ${{ env.CASE_ROOT }}/launch.json
-            ${{ runner.temp }}/original-modal-desktop-preflight.json
+            artifacts
+            eng/LinuxMessageBoxCaption
+
