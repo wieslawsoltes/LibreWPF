@@ -1,0 +1,14 @@
+<Project Sdk="LibreWPF.Sdk/0.1.0-preview.70">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(ProGpuWpfSdkSampleTargetFramework)</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ProGpuWpfRendererMode>$(CaptionRenderer)</ProGpuWpfRendererMode>
+    <ProGpuWpfNativeMilHitTesting>false</ProGpuWpfNativeMilHitTesting>
+    <ProGpuWpfNativeMilHitTesting Condition="'$(CaptionRenderer)' == 'NativeMilWgpu'">true</ProGpuWpfNativeMilHitTesting>
+  </PropertyGroup>
+  <Target Name="RequireReviewedRenderer" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(CaptionRenderer)' != 'NativeMilWgpu' and '$(CaptionRenderer)' != 'ManagedPortable'" Text="Select one reviewed caption renderer explicitly." />
+  </Target>
+</Project>

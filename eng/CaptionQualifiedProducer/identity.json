@@ -1,0 +1,7 @@
+{
+  "head": "4ab76a8a111a1b176d66bcd332f2d65e1c7dabca",
+  "build": 40683771914,
+  "docs": 40683771897,
+  "qualification": "All16 Build jobs and Docs passed; original dedicated diagnostics response retained without field changes",
+  "checksEnvelope": "structuredContent wraps the exact JSON parsed from original tool text, for compatibility with unchanged preparer"
+}

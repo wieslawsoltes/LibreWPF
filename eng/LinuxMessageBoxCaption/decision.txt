@@ -1,0 +1,98 @@
+Prepared Linux caption/modal acceptance — review only, not execution approval
+
+Purpose
+Complete the remaining real input portion of LibreWPF #112/#113 on disposable
+hosted Ubuntu/GNOME/XWayland, using the actual source-created MessageBox. Keep the
+seven-scenario Windows run39056342023 and four-caption Linux run39139024731 as
+their original passing evidence; do not repeat Windows scenarios or reinterpret
+the earlier failed native-title assertion. No shared local VM is involved.
+
+Existing implementation and evidence
+The product already draws one source caption/Close for fixed X11 windows, retains
+the source title and layout, disables Close for YesNo, uses Window.ShowDialog,
+and restores source owner admission. Four original captures visibly establish
+the caption subset, with original responses OK/Cancel/No/Cancel, zero native
+input, and 12.231786449 seconds within55/60 seconds. Programmatic closure did not
+establish native blocking, focus restoration, Close, Escape or drag behavior.
+
+Prepared supplemental application
+app/App.xaml.cs observes the same four actual MessageBox combinations. Its owner
+has a real source input guard. Actual input alone launches each dialog, closes
+it or selects No; the application never raises Click, calls a dialog Close,
+injects keys, overrides native modality, or supplies a source Focus workaround.
+Five positive owner clicks prove initial input and restoration after each dialog.
+The immutable original caption application is retained separately.
+
+Requested input scope, once final preparation and approval are complete
+For each explicitly selected renderer, NativeMilWgpu and ManagedPortable, run
+one new process with the original55-second source and absolute60-second process
+bound. Preserve original application/native captures and every failed assertion.
+Each process performs the following fixed sequence:
+- OK: positive owner click; blocked-owner click; one caption drag by48x32 physical
+  pixels with two fixed100ms holds; real enabled Close click; owner restoration.
+- OKCancel: positive owner click; blocked-owner click; Escape; restoration.
+- YesNo: positive owner click; blocked-owner click; disabled Close click and
+  Escape, both required to leave the dialog and owner counters unchanged; real
+  No response click; restoration.
+- YesNoCancel: positive owner click; blocked-owner click; real enabled Close
+  click; restoration; final positive owner click then normal process exit.
+
+The plan contains47 native event attempts and at most4 cleanup-release attempts,
+inside a64-event ceiling. Native operation time is cumulatively at most15 seconds,
+each operation is at most3 seconds and consumes the original process deadline.
+No retry, extra activation method, extra gesture, arbitrary key, or foreign
+window input is permitted. The only keys are the two existing Escape cases.
+Cleanup may release only this controller's own just-pressed button/key. A failed
+identity, focus, geometry, capture, counter, deadline or process check ends the
+run and preserves the failure.
+
+Owned session startup
+The existing immutable owned_overview.py may issue at most one public D-Bus
+OverviewActive=false request to the verified unique bus connection of the newly
+launched disposable GNOME process. It first observes that exact process's startup
+marker and verifies the unique bus owner's PID. The original5-second startup
+bound remains. No Eval, global desktop preference, shell keyboard input, unsafe
+mode, other session, or application activation fallback is admitted. The ordinary
+private button preference continues showing all three buttons as a positive
+control; it never hides minimize/maximize globally.
+
+Admission and evidence
+Retain the successful whole-producer Build/Docs metadata and exact package
+archive identity. Reuse the original qualified-package preparation, with the
+new source inventory explicitly recorded and renderer selected at build time.
+Verify every prepared output hash before/after execution; preserve original
+package/native-runtime provenance and all source differences. Both renderer
+executions require their own exact prepared inventory and separate fresh evidence.
+No partially successful producer or old public package is relabeled as current.
+
+Before each action, verify the live child PID, stable source/native owner and
+dialog identities, original titles, exact source/native client geometry, actual
+transient owner, focus, pointer ownership and native front-to-target obstruction.
+Do not fit bounds to native pixels. Check actual source input counters, real
+source Close enabled state, native Motif Close selection, borderless extents,
+presented frames and renderer identity. Preserve the ten original/supplemental
+client captures per process: initial owner, four dialog captions, one moved
+caption, and four restored owners. A source snapshot cannot replace a native
+capture or prove generic native-Wayland coverage.
+
+Execution status and remaining work
+This proposal is NOT approval. The executor requires this final file's SHA256
+through an explicit opt-in before it creates any input-capable run. No input or
+application execution has occurred. The C# observer has only been compiled as
+a library against current local source assemblies, without warnings/errors;
+that is not an executable package/application qualification. Pure admission
+controls and the independent review are recorded in the adjacent receipts.
+
+Before requesting execution, finish current whole-qualified WPF packages, stage
+the reviewed files on a disposable diagnostic branch, build both actual SDK
+consumers, verify their complete identities and validate the final workflow.
+The canonical Linux seven-scenario modal workload can then use its existing
+X11 helper with the corrected original absolute60-second handoff; its input
+authorization must explicitly include that original application too. Do not
+silently treat the prior Windows or Gallery-slider approval as this approval.
+
+This bounded caption proposal does not claim the broader #197 matrix: screen-edge
+placement, mixed DPI, source style/title/size-to-content transitions, nested menus,
+all framework/backend combinations and final public-package qualification remain
+separate. Its direct purpose is actual caption interaction and Linux owner
+blocking/restoration. No product gate is weakened to make the result pass.
