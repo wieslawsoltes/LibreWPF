@@ -1,0 +1,70 @@
+name: Prepare exact Linux caption consumers without input
+
+on:
+  pull_request:
+    branches: [fix/x11-fixed-window-caption]
+    paths:
+      - .github/workflows/caption-consumer-preparation.yml
+      - eng/LinuxMessageBoxCaption/**
+      - eng/CaptionQualifiedProducer/**
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compile:
+    name: Compile caption consumer (${{ matrix.renderer }})
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        renderer: [NativeMilWgpu, ManagedPortable]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            10.0.201
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify offline ownership and bounded input controls without native loading
+        working-directory: eng/LinuxMessageBoxCaption
+        run: python -m unittest test_contract test_executor_preflight test_freeze test_native_observation -v
+      - name: Download only the exact reviewed whole-qualified package artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python eng/LinuxMessageBoxCaption/download.py
+      - name: Compile the exact consumer without executing it
+        run: |
+          python eng/LinuxMessageBoxCaption/prepare.py \
+            --producer eng/CaptionQualifiedProducer \
+            --head 4ab76a8a111a1b176d66bcd332f2d65e1c7dabca \
+            --build 40683771914 --docs 40683771897 \
+            --progpu-head 905d52ac185278db60c312a709cf5aa045772dd5 \
+            --renderer ${{ matrix.renderer }}
+      - name: Freeze the complete verified output and original compilation receipt
+        run: |
+          python eng/LinuxMessageBoxCaption/freeze.py \
+            --receipt artifacts/ubuntu26-caption-preparation.json \
+            --destination artifacts/frozen-caption
+      - name: Preserve preparation and original failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: caption-consumer-${{ matrix.renderer }}-${{ github.event.pull_request.head.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            artifacts
+            eng/LinuxMessageBoxCaption
+            eng/CaptionQualifiedProducer/*.json
+            ${{ runner.temp }}/messagebox-caption/build.log
+

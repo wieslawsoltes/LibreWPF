@@ -1,0 +1,8 @@
+{
+  "repository": "wieslawsoltes/LibreWinForms",
+  "head": "208532c6a198ca24b718e9d396ef57d686cbb94b",
+  "files": {
+    "librewinforms-popup-x11.py": "beaec2ab33f4be0c92806fd214177226a0ff6c859f6f0babb4dbba84305468ce",
+    "librewinforms-popup-desktop.py": "83e2a53e880b39c73f82d26c93d0dd79f769c61908054817cf838f1c1ae7e9bc"
+  }
+}
