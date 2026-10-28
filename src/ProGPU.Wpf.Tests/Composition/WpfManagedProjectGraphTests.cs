@@ -62,9 +62,9 @@ public sealed class WpfManagedProjectGraphTests
     private static void AssertWindowsNativePassiveIdleWorkflow(string workflow)
     {
         Assert.Equal(13, workflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        // Thirteen checkout refs plus twenty exact-head artifact producer/consumer names,
-        // including the new owned native taskbar control evidence.
-        Assert.Equal(33, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        // Thirteen checkout refs plus twenty-three exact-head artifact names,
+        // including the font/desktop source and native HWND query evidence.
+        Assert.Equal(36, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
         foreach (string architecture in new[] { "x64", "arm64" })
         {
             string jobName = architecture == "x64" ? "windows-native-mil-showcase" : "windows-arm64-native-mil-showcase";
@@ -98,10 +98,13 @@ public sealed class WpfManagedProjectGraphTests
     {
         string workflow = File.ReadAllText(FindRepoPath(".github", "workflows", "progpu-wpf-sdk.yml"));
         Assert.Equal(13, workflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        Assert.Equal(33, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        Assert.Equal(20, workflow.Split('\n').Count(line =>
+        Assert.Equal(36, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        Assert.Equal(23, workflow.Split('\n').Count(line =>
             line.TrimStart().StartsWith("name: ", StringComparison.Ordinal) &&
             line.Contains("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringComparison.Ordinal)));
+        foreach (string evidence in new[] { "catalog-desktop-source-linux", "catalog-desktop-source-macos", "native-desktop-transform" })
+            Assert.Equal(1, workflow.Split($"name: {evidence}-${{{{ env.PROGPU_WPF_QUALIFIED_COMMIT }}}}",
+                StringSplitOptions.None).Length - 1);
         Assert.Equal(1, workflow.Split("name: native-taskbar-policy-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}",
             StringSplitOptions.None).Length - 1);
         Assert.Contains("run: ./eng/progpu-wpf-taskbar-native.ps1 -OutputDirectory \"${{ runner.temp }}/native-taskbar-policy\"",
@@ -160,8 +163,12 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("LibreWpfSourceRoot=${GITHUB_WORKSPACE}/", job, StringComparison.Ordinal);
         Assert.Contains("LibreWinFormsSourceRoot=${GITHUB_WORKSPACE}/external/LibreWinForms/", job, StringComparison.Ordinal);
         AssertGuardBefore(job, "name: Prepare exact framework source dependencies", "uses: actions/setup-dotnet@v4");
-        Assert.Equal(new[] { "run: |" }.Concat(commands), job.Split('\n').Select(line => line.Trim())
+        var expectedRuns = new[] { "run: |" }.Concat(commands.Take(3))
+            .Concat(new[] { "run: |" }).Concat(commands.Skip(3));
+        Assert.Equal(expectedRuns, job.Split('\n').Select(line => line.Trim())
             .Where(line => line.StartsWith("run:", StringComparison.Ordinal)).ToArray());
+        Assert.Contains("run: |\n          python3 eng/tests/test_wpf_catalog_desktop_source.py -v\n          bash ./eng/progpu-wpf-catalog-desktop-source.sh", job, StringComparison.Ordinal);
+        Assert.Contains("name: Retain system font and desktop source controls\n        if: always()\n        uses: actions/upload-artifact@v4", job, StringComparison.Ordinal);
         foreach (string command in commands)
         {
             Assert.Equal(1, workflow.Split('\n').Count(line => line.Trim() == command));
@@ -169,7 +176,8 @@ public sealed class WpfManagedProjectGraphTests
         AssertGuardBefore(job, "uses: actions/checkout@v4", "uses: actions/setup-dotnet@v4");
         AssertGuardBefore(job, "uses: actions/setup-dotnet@v4", commands[0]);
         Assert.DoesNotContain("needs:", job, StringComparison.Ordinal);
-        Assert.DoesNotContain("if:", job, StringComparison.Ordinal);
+        Assert.Equal(new[] { "if: always()" }, job.Split('\n').Select(line => line.Trim())
+            .Where(line => line.StartsWith("if:", StringComparison.Ordinal)).ToArray());
         Assert.DoesNotContain("continue-on-error:", job, StringComparison.Ordinal);
         Assert.DoesNotContain("actions/download-artifact", job, StringComparison.Ordinal);
         string textPropertiesRunner = File.ReadAllText(FindRepoPath("eng", "progpu-wpf-text-properties-source.sh"));
@@ -1298,7 +1306,9 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("internal static int ToDeviceScreenCoordinate", windowHost, StringComparison.Ordinal);
         Assert.Contains("UpdatePortablePopupOwnerOrigins(bridge.Source, deviceX, deviceY, popupDeviceScale)", windowHost, StringComparison.Ordinal);
         Assert.Contains("internal void ShowWithoutActivation(Func<Action, bool>? showWithOwner = null)", windowHost, StringComparison.Ordinal);
-        Assert.Contains("PlatformServices.WindowDecorations.TryShowWithoutActivation(_window!)", windowHost, StringComparison.Ordinal);
+        Assert.Contains("IWindow window = _window!;", windowHost, StringComparison.Ordinal);
+        Assert.Contains("PlatformServices.WindowDecorations.TryShowWithoutActivation(window)", windowHost, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(window, _window)", windowHost, StringComparison.Ordinal);
         Assert.Contains("internal void DeferShowUntilRun()", windowHost, StringComparison.Ordinal);
         Assert.Contains("_window.Initialize();", windowHost, StringComparison.Ordinal);
         Assert.Contains("bool TryShowWithoutActivation(object window)", platformServices, StringComparison.Ordinal);
@@ -13351,7 +13361,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("\"--runtime\",", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("\"${{ matrix.rid }}\",", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("if ($IsWindows)", proGpuBuildWorkflow, StringComparison.Ordinal);
-        Assert.Contains("\"FullyQualifiedName~DiagnosticsLoggingSourceTests|FullyQualifiedName~StrongNameSigningTests|FullyQualifiedName~WindowsDpiAwarenessTests|FullyQualifiedName~WindowsGdiBitmapTests|FullyQualifiedName~GpuBufferDeviceLossTests|FullyQualifiedName~GpuCoverageUploadTests|FullyQualifiedName~OwnedGpuFinalizerTests|FullyQualifiedName~GpuSeriesFinalizerTests|FullyQualifiedName~PipelineCacheFinalizerTests|FullyQualifiedName~NativeMouseButtonPacketTests|FullyQualifiedName~NativeWindowInputWindowsTests.OriginalButtonPacket\"", proGpuBuildWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\"FullyQualifiedName~DiagnosticsLoggingSourceTests|FullyQualifiedName~StrongNameSigningTests|FullyQualifiedName~WindowsDpiAwarenessTests|FullyQualifiedName~WindowsGdiBitmapTests|FullyQualifiedName~GpuBufferDeviceLossTests|FullyQualifiedName~GpuCoverageUploadTests|FullyQualifiedName~OwnedGpuFinalizerTests|FullyQualifiedName~GpuSeriesFinalizerTests|FullyQualifiedName~PipelineCacheFinalizerTests|FullyQualifiedName~NativeMouseButtonPacketTests|FullyQualifiedName~NativeWindowInputWindowsTests.OriginalButtonPacket|FullyQualifiedName~NativeWindowInputWindowsTests.CloseEnabledPolicy\"", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("dotnet @testArgs", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("uses: actions/upload-artifact@v", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("name: progpu-packages-linux-x64", proGpuBuildWorkflow, StringComparison.Ordinal);

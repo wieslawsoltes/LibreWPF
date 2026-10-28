@@ -29,6 +29,9 @@ public sealed class ProGpuWpfWindowOptions
     // providers keep their existing independent taskbar/dock behavior.
     internal bool? Win32ShowInTaskbar { get; set; }
 
+    // Independent advisory X11 policy, applied only to the actual mapped client.
+    internal bool? X11ShowInTaskbar { get; set; }
+
     public bool TransparentFramebuffer { get; set; }
 
     /// <summary>

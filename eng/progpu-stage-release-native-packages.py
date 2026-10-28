@@ -9,6 +9,8 @@ import re
 import shutil
 import stat
 import struct
+import subprocess
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
@@ -36,7 +38,7 @@ def validate_xlib(staged, commit):
              "wgpu-LICENSE.MIT", "wgpu-LICENSE.APACHE", "webgpu-headers-LICENSE"}
     expected = {f"{rid}/native/{name}" for rid in ("linux-x64", "linux-arm64")
                 for name in files | {"wgpu-native-linux.json"}}
-    actual = {str(path.relative_to(staged)) for path in staged.rglob("*") if path.is_file()}
+    actual = {path.relative_to(staged).as_posix() for path in staged.rglob("*") if path.is_file()}
     if actual != expected:
         raise ValueError("Xlib staging requires both exact Linux runtime inventories")
     source_inputs = None
@@ -69,8 +71,65 @@ def validate_xlib(staged, commit):
 
 
 def stage_xlib(package, destination, version, commit):
-    return stage_payloads(((package, "ProGPU.Backend", "runtimes/", "runtimes/"),),
+    return stage_payloads(tuple((package, "ProGPU.Backend", f"runtimes/{rid}/", "runtimes/")
+                                for rid in ("linux-x64", "linux-arm64")),
                           destination, version, commit, validate=validate_xlib)
+
+
+
+def stage_windows(package, destination, version, commit, producer_root):
+    """Use the exact producer's read-only verifier, never a second patch/pin copy."""
+    destination = Path(destination)
+    if destination.exists() or destination.is_symlink():
+        raise ValueError("Windows staging destination must not already exist, including legacy producers")
+    producer = Path(producer_root).resolve(strict=True)
+    actual_commit = subprocess.check_output(["git", "-C", str(producer), "rev-parse", "HEAD"],
+                                           text=True, timeout=30).strip()
+    if actual_commit != commit:
+        raise ValueError("Windows producer source must match the exact package commit")
+    verifier = producer / "eng/progpu-wgpu-windows-runtime.py"
+    windows_prefixes = ("runtimes/win-x64/", "runtimes/win-arm64/")
+    committed_verifier = subprocess.check_output(["git", "-C", str(producer), "ls-tree", "--name-only", "HEAD", "--",
+                                                  "eng/progpu-wgpu-windows-runtime.py"], text=True, timeout=30).strip()
+    if not committed_verifier:
+        if verifier.exists() or verifier.is_symlink():
+            raise ValueError("Untracked Windows verifier is not an old producer capability")
+        # Old qualified sources have no Windows-owned capability or payload.
+        # A new/partial payload must never silently fall back to the stock DLL.
+        with zipfile.ZipFile(package) as archive:
+            validate_provenance(archive, "ProGPU.Backend", version, commit)
+            if any(item.filename.startswith(windows_prefixes) for item in archive.infolist()):
+                raise ValueError("Windows runtime payload has no matching producer verifier")
+        return 0
+    checked_paths = ["eng/progpu-wgpu-windows-runtime.py", "eng/progpu-native-wgpu.version.json",
+                     "eng/wgpu-dxc/build-inputs.json", "eng/wgpu-dxc/Cargo.lock", "eng/wgpu-hlsl"]
+    subprocess.run(["git", "-C", str(producer), "ls-files", "--error-unmatch",
+                    "eng/progpu-wgpu-windows-runtime.py"], check=True, capture_output=True, timeout=30)
+    modified = subprocess.check_output(["git", "-C", str(producer), "diff", "--name-only", "HEAD", "--", *checked_paths],
+                                       text=True, timeout=30).strip()
+    if modified or verifier.is_symlink():
+        raise ValueError("Windows producer verifier or reviewed inputs have local changes")
+
+    def validate(staged, _commit):
+        for rid in ("win-x64", "win-arm64"):
+            subprocess.run([sys.executable, "-I", str(verifier), "--rid", rid, "--verify", str(staged / rid / "native")],
+                           check=True, timeout=60)
+
+    return stage_payloads(tuple((package, "ProGPU.Backend", prefix, "runtimes/")
+                                for prefix in windows_prefixes), destination, version, commit, validate=validate)
+
+def validate_provenance(archive, package_id, version, commit):
+    specs = [item for item in archive.infolist() if item.filename.endswith(".nuspec")]
+    if len(specs) != 1 or specs[0].file_size > 1024 * 1024:
+        raise ValueError(f"{package_id}: expected one bounded nuspec")
+    metadata = ET.fromstring(archive.read(specs[0])).find("{*}metadata")
+    repository = None if metadata is None else metadata.find("{*}repository")
+    if (metadata is None or metadata.findtext("{*}id") != package_id
+            or metadata.findtext("{*}version") != version or repository is None
+            or repository.get("commit") != commit
+            or repository.get("url", "").removesuffix(".git").rstrip("/")
+            != "https://github.com/wieslawsoltes/ProGPU"):
+        raise ValueError(f"{package_id}: release provenance mismatch")
 
 
 def stage_payloads(packages, destination, version, commit, validate=None):
@@ -86,17 +145,7 @@ def stage_payloads(packages, destination, version, commit, validate=None):
         published = {}
         for path, package_id, prefix, remove_prefix in packages:
             with zipfile.ZipFile(path) as archive:
-                specs = [item for item in archive.infolist() if item.filename.endswith(".nuspec")]
-                if len(specs) != 1 or specs[0].file_size > 1024 * 1024:
-                    raise ValueError(f"{package_id}: expected one bounded nuspec")
-                metadata = ET.fromstring(archive.read(specs[0])).find("{*}metadata")
-                repository = None if metadata is None else metadata.find("{*}repository")
-                if (metadata is None or metadata.findtext("{*}id") != package_id
-                        or metadata.findtext("{*}version") != version or repository is None
-                        or repository.get("commit") != commit
-                        or repository.get("url", "").removesuffix(".git").rstrip("/")
-                        != "https://github.com/wieslawsoltes/ProGPU"):
-                    raise ValueError(f"{package_id}: release provenance mismatch")
+                validate_provenance(archive, package_id, version, commit)
                 members = set()
                 for item in archive.infolist():
                     name = item.filename
@@ -148,11 +197,16 @@ def main():
     parser.add_argument("--dx12-destination", type=Path)
     parser.add_argument("--xlib-package", type=Path)
     parser.add_argument("--xlib-destination", type=Path)
+    parser.add_argument("--windows-package", type=Path)
+    parser.add_argument("--windows-destination", type=Path)
+    parser.add_argument("--producer-root", type=Path)
     args = parser.parse_args()
     if (args.dx12_package is None) != (args.dx12_destination is None):
         parser.error("DX12 staging requires both its exact package and destination")
     if (args.xlib_package is None) != (args.xlib_destination is None):
         parser.error("Xlib staging requires both its exact package and destination")
+    if any(value is not None for value in (args.windows_package, args.windows_destination, args.producer_root)) and not all(value is not None for value in (args.windows_package, args.windows_destination, args.producer_root)):
+        parser.error("Windows staging requires its exact Backend package, destination and producer source root")
     count = stage(args.native, args.sdk, args.destination, args.version, args.commit)
     print(f"Staged {count} original native runtime/SDK/license files at {args.commit}.")
     if args.dx12_package is not None:
@@ -161,6 +215,9 @@ def main():
     if args.xlib_package is not None:
         count = stage_xlib(args.xlib_package, args.xlib_destination, args.version, args.commit)
         print(f"Staged {count} original Xlib runtime/receipt/license files at {args.commit}.")
+    if args.windows_package is not None:
+        count = stage_windows(args.windows_package, args.windows_destination, args.version, args.commit, args.producer_root)
+        print(f"Staged {count} original Windows runtime/receipt/license files at {args.commit}; zero retains the old producer capability.")
 
 
 if __name__ == "__main__":

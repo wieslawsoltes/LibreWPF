@@ -18,6 +18,15 @@ change does not fix product retirement or qualify the remaining desktop pixels.
 
 # WPF modal desktop acceptance
 
+The X11 adapter's initial ten-second deadline bounds connection setup. The WPF
+controller now hands it the same absolute sixty-second process deadline used by
+the Cocoa adapter and source scenario; connection setup consumes that budget.
+Previously the X11 path retained its setup deadline after construction, causing
+later protocol operations to expire early. The authored handoff control fails on
+the original X11 path and passes after the correction, while preserving Cocoa
+and Windows behavior. No input, source scenario, capture or process limit changes.
+Actual Linux desktop acceptance remains required.
+
 The `356d1a22` whole producer passed all 16 Build jobs and Docs. Original paired
 run 39020954237 completed Microsoft's seven scenarios and portable MessageBox,
 ShowDialog and Popup, then rejected ContextMenu before capture: observations 31

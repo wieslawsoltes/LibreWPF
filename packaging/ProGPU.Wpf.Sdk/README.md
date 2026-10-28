@@ -13,6 +13,18 @@ created by an older SDK before rebuilding a Windows target. Ordinary portable
 macOS/Linux apps still receive their native compatibility library, including apps
 whose managed target framework is `net10.0-windows`.
 
+The portable `user32.dll` shim exports `GetDoubleClickTime` for third-party
+P/Invoke callers. On macOS it reads the current AppKit `NSEvent.doubleClickInterval`
+even before a window host exists, converts seconds to integer milliseconds with
+nearest-even rounding, and applies the Win32 maximum of 5,000 milliseconds. Linux
+and unavailable/invalid native queries use the existing portable 500 ms default.
+Windows targets continue using the operating system's `user32.dll`. This export
+resolves the initialization failure reported in #298; complete DevExpress
+rendering and interaction remain separate application qualification.
+
+Contracts: [GetDoubleClickTime](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdoubleclicktime)
+and [NSEvent.doubleClickInterval](https://developer.apple.com/documentation/appkit/nsevent/doubleclickinterval).
+
 For locally rebuilt development feeds, the SDK clears known WPF and ProGPU runtime assemblies from the app output before recopying package assets. This prevents an incremental app rebuild from launching stale bridge/compositor DLLs after a local package refresh while preserving normal incremental copy behavior for stable package versions. Set `ProGpuWpfClearMutablePackageOutputs=false` to disable this development safeguard.
 
 The SDK owns the package dependency closure. `LibreWPF.Transport` supplies the real managed WPF assembly identities and runtime payload, while `LibreWPF.ProGPU` is the adapter/runtime bridge package and does not publish dependencies on the ProGPU shim `PresentationCore` package.

@@ -38,6 +38,9 @@ def main():
         target = source / 'src/ProGPU.Backend/buildTransitive/ProGPU.Backend.targets'
         target.parent.mkdir(parents=True)
         target.write_bytes((producer / target.relative_to(source)).read_bytes())
+        windows_target = producer / target.relative_to(source).parent / "ProGPU.Backend.Windows.targets"
+        if windows_target.exists():
+            (target.parent / windows_target.name).write_bytes(windows_target.read_bytes())
         stage = source / 'artifacts/progpu-xlib/package'
         stage.parent.mkdir(parents=True)
         stage.symlink_to(payload, target_is_directory=True)
