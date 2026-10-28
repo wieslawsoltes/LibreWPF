@@ -411,12 +411,25 @@ namespace MS.Internal.Text.TextInterface
                 "LibreWPF",
                 "Fonts",
                 "LibreWPF.FluentSymbols.ttf");
+
+            return EnumerateSystemFontUris(bundledSymbolFont, GetSystemFontDirectories());
+        }
+
+        internal static IEnumerable<Uri> EnumerateSystemFontUris(
+            string bundledSymbolFont, IEnumerable<string> directories)
+        {
+            // Discovery roots may overlap, including the bundled source. Keep the
+            // first exact source URI before opening/parsing files, without merging
+            // distinct files, TTC faces or explicitly supplied custom collections.
+            var sources = new HashSet<string>(StringComparer.Ordinal);
             if (File.Exists(bundledSymbolFont))
             {
-                yield return new Uri(bundledSymbolFont, UriKind.Absolute);
+                var uri = new Uri(bundledSymbolFont, UriKind.Absolute);
+                sources.Add(uri.AbsoluteUri);
+                yield return uri;
             }
 
-            foreach (string directory in GetSystemFontDirectories())
+            foreach (string directory in directories)
             {
                 if (!Directory.Exists(directory))
                 {
@@ -437,7 +450,11 @@ namespace MS.Internal.Text.TextInterface
                 {
                     if (PortableFontData.IsSupportedFontPath(file))
                     {
-                        yield return new Uri(file, UriKind.Absolute);
+                        var uri = new Uri(file, UriKind.Absolute);
+                        if (sources.Add(uri.AbsoluteUri))
+                        {
+                            yield return uri;
+                        }
                     }
                 }
             }
@@ -448,7 +465,6 @@ namespace MS.Internal.Text.TextInterface
             if (OperatingSystem.IsMacOS())
             {
                 yield return "/System/Library/Fonts";
-                yield return "/System/Library/Fonts/Supplemental";
                 yield return "/Library/Fonts";
                 yield return Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),

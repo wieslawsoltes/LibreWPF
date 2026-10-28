@@ -1197,6 +1197,7 @@ namespace System.Windows
     public static partial class PortablePresentationSourceHost
     {
         public static System.Windows.IPortablePresentationSourceHost Create(double dpiScaleX = 1, double dpiScaleY = 1) { throw null; }
+        public static bool TryGetDesktopTransform(System.Windows.PresentationSource source, out ProGPU.Wpf.Interop.PortableDesktopTransform transform) { throw null; }
     }
     public enum PortableVisualOwnerKind
     {

@@ -17,6 +17,36 @@ SPEC.loader.exec_module(DRIVER)
 
 
 class DesktopReceiptTests(unittest.TestCase):
+    def test_native_protocol_uses_original_absolute_process_deadline(self):
+        for platform in ('x11', 'macos', 'windows'):
+            with self.subTest(platform=platform), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                app = root / 'original-app'
+                app.write_bytes(b'original source application')
+                process = mock.Mock(pid=19, returncode=0)
+                process.poll.return_value = 0
+                now = [100.0]
+                desktop = mock.Mock(provenance=None)
+                def create(*_):
+                    now[0] = 104.0  # Native connection setup consumes the original process budget.
+                    desktop.deadline = now[0] + 10
+                    return desktop
+                def check(session):
+                    self.assertEqual(160.0, session.deadline)
+                    self.assertEqual(160.0 if platform in ('x11', 'macos') else 114.0, desktop.deadline)
+                    self.assertEqual(0, session.actions)
+                args = SimpleNamespace(platform=platform, macos_helper=None,
+                                       hosted_windows_caption_activation=False, hosted_windows_shell_escape=False)
+                with mock.patch.object(DRIVER.subprocess, 'Popen', return_value=process), \
+                     mock.patch.object(DRIVER.time, 'monotonic', side_effect=lambda: now[0]), \
+                     mock.patch.object(DRIVER, 'make_desktop', side_effect=create), \
+                     mock.patch.object(DRIVER, 'scenario', side_effect=check):
+                    DRIVER.run_one(args, None, {}, app, root / 'evidence', True)
+                desktop.pointer.assert_not_called()
+                desktop.key.assert_not_called()
+                desktop.activate.assert_not_called()
+                self.assertTrue(json.loads((root / 'evidence/result.json').read_text())['completed'])
+
     def test_first_presented_frame_requires_two_ready_observations(self):
         # The retained context-menu failure had stable native geometry at zero
         # frames. A first frame must not reuse either unpresented observation.

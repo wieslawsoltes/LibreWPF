@@ -201,6 +201,19 @@ jobs:
       - name: Validate original Hong Kong composite map precedence
         run: bash ./eng/progpu-wpf-cjk-fallback-source.sh
 
+      - name: Validate system font discovery and public desktop mapping
+        run: |
+          python3 eng/tests/test_wpf_catalog_desktop_source.py -v
+          bash ./eng/progpu-wpf-catalog-desktop-source.sh
+
+      - name: Retain system font and desktop source controls
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-desktop-source-linux-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/catalog-desktop-source/**
+          if-no-files-found: warn
+
       - name: Validate source typography and embedded font URI contracts
         run: bash ./eng/progpu-wpf-text-properties-source.sh
 
@@ -258,7 +271,15 @@ jobs:
 
       - name: Build Windows PresentationCore
         shell: pwsh
-        run: ./eng/progpu-wpf-windows-managed-runtime.ps1
+        run: ./eng/progpu-wpf-windows-managed-runtime.ps1 -ValidateDesktopTransform
+
+      - name: Retain actual native desktop-transform query evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-desktop-transform-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/desktop-transform-source/**
+          if-no-files-found: warn
 
       - name: Setup native taskbar control SDK
         uses: actions/setup-dotnet@v4
@@ -392,6 +413,17 @@ jobs:
 
       - name: Validate macOS CJK physical font fallback
         run: bash ./eng/progpu-wpf-cjk-fallback-source.sh --macos-fonts
+
+      - name: Validate macOS system font discovery and public desktop mapping
+        run: bash ./eng/progpu-wpf-catalog-desktop-source.sh
+
+      - name: Retain macOS font and desktop source controls
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-desktop-source-macos-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: artifacts/catalog-desktop-source/**
+          if-no-files-found: warn
 
       - name: Preserve failed Showcase app closure
         if: ${{ failure() && steps.sdk-gate.outcome == 'failure' }}

@@ -239,7 +239,7 @@ namespace MS.Internal
             return false;
         }
 
-        private static bool TryGetPortablePresentationSource(
+        internal static bool TryGetPortablePresentationSource(
             PresentationSource presentationSource,
             out PortablePresentationSource portableSource)
         {
