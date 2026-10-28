@@ -28,6 +28,7 @@ namespace System.Windows
         private static Action<object, double, double> _setPosition;
         private static Action<object, bool> _setTopmost;
         private static Action<object, bool> _setWin32TaskbarVisibility;
+        private static Func<object, bool, bool> _setX11TaskbarVisibility;
         private static Action<object, object, object> _setWindowBorder;
         private static Action<object> _close;
         private static Action<object> _run;
@@ -141,6 +142,7 @@ namespace System.Windows
             Volatile.Write(ref _setPosition, callbacks.SetPosition);
             Volatile.Write(ref _setTopmost, callbacks.SetTopmost);
             Volatile.Write(ref _setWin32TaskbarVisibility, callbacks.SetWin32TaskbarVisibility);
+            Volatile.Write(ref _setX11TaskbarVisibility, callbacks.SetX11TaskbarVisibility);
             Volatile.Write(ref _setWindowBorder, callbacks.SetWindowBorder);
             Volatile.Write(ref _close, callbacks.Close);
             Volatile.Write(ref _run, callbacks.Run);
@@ -177,6 +179,7 @@ namespace System.Windows
             Volatile.Write(ref _setPosition, null);
             Volatile.Write(ref _setTopmost, null);
             Volatile.Write(ref _setWin32TaskbarVisibility, null);
+            Volatile.Write(ref _setX11TaskbarVisibility, null);
             Volatile.Write(ref _setWindowBorder, null);
             Volatile.Write(ref _close, null);
             Volatile.Write(ref _run, null);
@@ -285,9 +288,14 @@ namespace System.Windows
             Volatile.Read(ref _setPosition)?.Invoke(activation, left, top);
         }
 
-        internal static void SetWin32TaskbarVisibility(object activation, bool visible)
+        internal static bool SetTaskbarVisibility(object activation, bool visible)
         {
-            Volatile.Read(ref _setWin32TaskbarVisibility)?.Invoke(activation, visible);
+            if (activation == null) return false;
+            if (Volatile.Read(ref _setX11TaskbarVisibility) is { } x11)
+                return x11(activation, visible) && ReferenceEquals(x11, Volatile.Read(ref _setX11TaskbarVisibility));
+            var win32 = Volatile.Read(ref _setWin32TaskbarVisibility);
+            win32?.Invoke(activation, visible);
+            return win32 != null;
         }
 
         internal static void SetTopmost(object activation, bool topmost)

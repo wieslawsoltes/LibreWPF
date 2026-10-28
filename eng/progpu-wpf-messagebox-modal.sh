@@ -26,4 +26,4 @@ LIBREWPF_TEST_MEDIA_BACKEND=Portable "${dotnet_command}" \
   --filter-method '*PortableWindowBackdropNeverTreatsItsHostHandleAsWpfHwnd*' \
   --filter-method '*Taskbar*' \
   --filter-method '*Caption*' \
-  --minimum-expected-tests 16 --fail-skips on --timeout 60s --no-progress
+  --minimum-expected-tests 20 --fail-skips on --timeout 60s --no-progress

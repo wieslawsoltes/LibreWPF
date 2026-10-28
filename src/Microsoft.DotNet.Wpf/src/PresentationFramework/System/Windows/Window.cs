@@ -5537,7 +5537,7 @@ namespace System.Windows
             {
                 // The registered host resolves its own native identity. Never
                 // pass the portable source handle to the WPF HWND path below.
-                PortableWindowActivationService.SetWin32TaskbarVisibility(_portableWindowActivation, ShowInTaskbar);
+                PortableWindowActivationService.SetTaskbarVisibility(_portableWindowActivation, ShowInTaskbar);
                 return;
             }
 

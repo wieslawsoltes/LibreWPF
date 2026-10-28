@@ -584,6 +584,10 @@ public sealed class PortableWindowActivationCallbacks
     /// <summary>Optional source Win32 taskbar policy; other native providers retain their separate admission.</summary>
     public Action<object, bool>? SetWin32TaskbarVisibility { get; init; }
 
+    /// <summary>Optional source X11 taskbar hint. True means the mapped-window
+    /// request was sent, not that the window manager applied it.</summary>
+    public Func<object, bool, bool>? SetX11TaskbarVisibility { get; init; }
+
     public Action<object, object, object>? SetWindowBorder { get; }
 
     public Action<object>? Close { get; }

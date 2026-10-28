@@ -205,7 +205,8 @@ public partial class PortableWindowActivationServiceTests
         Action<Window, IPortablePresentationSourceHost, List<WindowStyle>> test,
         Func<Window, bool>? query = null,
         Action<Window, bool>? closePolicy = null,
-        bool? initialCloseEnabled = null)
+        bool? initialCloseEnabled = null,
+        Func<Window, bool, bool> taskbarPolicy = null)
     {
         using IPortablePresentationSourceHost host = PortablePresentationSourceHost.Create();
         var window = new Window
@@ -228,6 +229,7 @@ public partial class PortableWindowActivationServiceTests
         {
             GetFrameInsets = _ => default(PortableWindowFrameInsets),
             RequiresSourceFixedCaption = enabled ? source => query?.Invoke((Window)source) ?? true : null,
+            SetX11TaskbarVisibility = taskbarPolicy == null ? null : (source, value) => taskbarPolicy((Window)source, value),
             SetCloseButtonEnabled = closePolicy == null ? null : (source, value) =>
             {
                 closePolicy((Window)source, value);

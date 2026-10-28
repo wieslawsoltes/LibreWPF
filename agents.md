@@ -1,3 +1,10 @@
+Source X11 taskbar visibility uses the existing advisory mapped-window request,
+independently of Win32 hidden-owner policy. Retain explicit desired state through
+creation and hide/show, exact live window/controller/thread and source-intent
+identity, and clear optional callbacks on registration replacement. A successful
+send is not observed window-manager state or desktop qualification. Preserve
+MessageBox's source policy and other providers. See docs/source-x11-taskbar-visibility.md.
+
 Explicit source Close enabled state uses the typed optional activation callback
 and the matching ProGPU enabled-state primitive, never CanClose visibility.
 Preserve ordinary unselected windows, same-activation ownership, local-policy

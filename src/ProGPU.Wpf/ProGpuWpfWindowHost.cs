@@ -1224,6 +1224,40 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         _options.Win32ShowInTaskbar = visible;
     }
 
+    internal Func<IWindow, bool, bool>? X11TaskbarVisibilitySetterOverride { get; set; }
+    private long _x11TaskbarRevision;
+
+    internal bool SetX11TaskbarVisibility(bool visible)
+    {
+        ThrowIfDisposed();
+        if (_window != null && _nativeWindowThreadId != Environment.CurrentManagedThreadId) return false;
+        // Retain explicit source intent even before native creation or while hidden.
+        _x11TaskbarRevision++;
+        _options.X11ShowInTaskbar = visible;
+        return TryApplyX11TaskbarVisibility();
+    }
+
+    private bool TryApplyX11TaskbarVisibility()
+    {
+        IWindow? window = _window;
+        SilkWindowController? controller = _windowController;
+        long revision = _x11TaskbarRevision;
+        if (_options.X11ShowInTaskbar is not bool visible || window == null ||
+            _nativeWindowThreadId != Environment.CurrentManagedThreadId ||
+            !IsCurrent() || !window.IsVisible || !IsCurrent()) return false;
+        var apply = X11TaskbarVisibilitySetterOverride;
+        if (apply != null)
+            return apply(window, visible) && IsCurrent() && ReferenceEquals(apply, X11TaskbarVisibilitySetterOverride);
+        if (controller?.Handle.Kind != NativeWindowKind.X11 || !IsCurrent()) return false;
+        // EWMH requests are advisory. A successful send is not an observed state.
+        return controller.SetShowInTaskbar(visible) && IsCurrent() &&
+            _options.X11ShowInTaskbar == visible;
+
+        bool IsCurrent() => !_isDisposed && !_hasNativeWindowCloseStarted && _isHostVisible &&
+            ReferenceEquals(window, _window) && ReferenceEquals(controller, _windowController) &&
+            revision == _x11TaskbarRevision;
+    }
+
     private void ReleaseNativeWindowDependencies()
     {
         _win32TaskbarPolicy?.ReleaseAfterNativeWindow();
@@ -1426,7 +1460,12 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
             ReferenceEquals(window, _window) && window.IsVisible &&
             !_isDisposed && !_hasNativeWindowCloseStarted && _isHostVisible &&
             ReferenceEquals(window, _window))
-            NativeShowCompleted?.Invoke(this, EventArgs.Empty);
+        {
+            TryApplyX11TaskbarVisibility();
+            if (!_isDisposed && !_hasNativeWindowCloseStarted && _isHostVisible &&
+                ReferenceEquals(window, _window))
+                NativeShowCompleted?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     internal void DeferShowUntilRun()
