@@ -178,7 +178,8 @@ finally {
     Remove-Item -Path $restoreRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [string] $runtimeIdentifier, [string] $ijwHostSourcePath = "") {
+function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [string] $runtimeIdentifier,
+        [string] $ijwHostSourcePath = "", [switch] $SerializeBuild) {
     # Compiler/SDK changes require real compilation, not reuse of assemblies
     # previously produced with missing analyzers. Use Arcade's scoped Rebuild
     # action without deleting unrelated checkout outputs or running tests.
@@ -205,6 +206,15 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         $nativeToolsArgument = @("-nativeToolsOnMachine")
     }
 
+    $schedulingArguments = @()
+    if ($SerializeBuild) {
+        # The test graph reaches the same C++/CLI output through direct and
+        # transitive references with different global properties. Serialize
+        # these writers; concurrent links can replace/delete the same DLL.
+        # Arcade supplies /m first, so this later limit owns the scoped build.
+        $schedulingArguments = @('/m:1', '/p:BuildInParallel=false')
+    }
+
     # Arcade exits its process; keep each build isolated and preserve the
     # current host's execution policy rather than requesting an override.
     # The repository's inherited Framework-hosted compiler cannot load the
@@ -223,6 +233,7 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         "/p:PerlCommand=$perlCommand" `
         $runtimeIdentifierArgument `
         $ijwHostArgument `
+        $schedulingArguments `
         /p:BuildWithNetFrameworkHostedCompiler=false `
         /p:RunNetFrameworkApiCompat=false `
         /p:RunRefApiCompat=false
@@ -292,7 +303,7 @@ if ($ValidateDesktopTransform) {
     $testAssembly = Join-Path $testDirectory "PresentationCore.Tests.dll"
     $x64IjwHost = Join-Path $packagesDirectory "microsoft.netcore.app.host.win-x64/$netCoreAppVersion/runtimes/win-x64/native/ijwhost.dll"
     if ($Rebuild -or !(Test-Path $testAssembly -PathType Leaf)) {
-        Invoke-WpfProjectBuild $testProject "x64" "win-x64" $x64IjwHost
+        Invoke-WpfProjectBuild $testProject "x64" "win-x64" $x64IjwHost -SerializeBuild
     }
     if (!(Test-Path $testAssembly -PathType Leaf)) {
         throw "The x64 source test assembly is missing: $testAssembly"

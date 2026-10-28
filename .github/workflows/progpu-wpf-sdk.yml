@@ -269,6 +269,12 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Check Windows source build scheduling
+        shell: pwsh
+        run: |
+          python -m unittest eng/tests/test_wpf_windows_managed_runtime_build.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Windows source build invocation controls failed.' }
+
       - name: Build Windows PresentationCore
         shell: pwsh
         run: ./eng/progpu-wpf-windows-managed-runtime.ps1 -ValidateDesktopTransform
