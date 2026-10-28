@@ -53,7 +53,7 @@ jobs:
         run: python3 eng/LinuxMessageBoxCaption/stage_frozen.py --renderer ${{ matrix.renderer }}
       - name: Validate unchanged offline input contracts
         working-directory: eng/LinuxMessageBoxCaption
-        run: python3 -m unittest test_staging test_contract test_executor_preflight test_native_observation -v
+        run: python3 -m unittest test_staging test_contract test_executor_preflight test_native_observation test_stage_entrypoint -v
       - name: Run the reviewed four-dialog sequence once
         env:
           LIBREWPF_CAPTION_INPUT_APPROVAL_SHA256: ${{ inputs.proposal_sha256 }}
