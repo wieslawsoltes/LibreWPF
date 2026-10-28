@@ -38,7 +38,7 @@ def validate_xlib(staged, commit):
              "wgpu-LICENSE.MIT", "wgpu-LICENSE.APACHE", "webgpu-headers-LICENSE"}
     expected = {f"{rid}/native/{name}" for rid in ("linux-x64", "linux-arm64")
                 for name in files | {"wgpu-native-linux.json"}}
-    actual = {str(path.relative_to(staged)) for path in staged.rglob("*") if path.is_file()}
+    actual = {path.relative_to(staged).as_posix() for path in staged.rglob("*") if path.is_file()}
     if actual != expected:
         raise ValueError("Xlib staging requires both exact Linux runtime inventories")
     source_inputs = None

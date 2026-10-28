@@ -5,7 +5,7 @@ import importlib.util
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import subprocess
 import struct
 import tempfile
@@ -125,6 +125,50 @@ class ReleaseNativePackagesTests(unittest.TestCase):
         self.assertEqual(14, STAGING.stage_xlib(package, self.destination, VERSION, COMMIT))
         for name, data in entries:
             self.assertEqual(data, (self.destination / name.removeprefix("runtimes/")).read_bytes())
+
+    def test_xlib_inventory_uses_archive_names_on_each_host_path_flavor(self):
+        # Keep real file/hash/ELF validation; vary only pathlib's relative-name
+        # representation, including Windows behavior on a non-Windows test host.
+        entries = self.xlib_entries()
+        for name, data in entries:
+            output = self.destination / name.removeprefix("runtimes/")
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(data)
+
+        class InventoryPath:
+            def __init__(self, path, flavor):
+                self.path, self.flavor = path, flavor
+
+            def __truediv__(self, child):
+                return self.path / child
+
+            def rglob(self, pattern):
+                return (InventoryPath(path, self.flavor) for path in self.path.rglob(pattern))
+
+            def is_file(self):
+                return self.path.is_file()
+
+            def relative_to(self, root):
+                return self.flavor(*self.path.relative_to(root.path).parts)
+
+        for flavor in (PurePosixPath, PureWindowsPath):
+            with self.subTest(flavor=flavor.__name__):
+                staged = InventoryPath(self.destination, flavor)
+                STAGING.validate_xlib(staged, COMMIT)
+                extra = self.destination / "linux-x64/native/unexpected.so"
+                extra.write_bytes(b"unexpected")
+                with self.assertRaisesRegex(ValueError, "inventories"):
+                    STAGING.validate_xlib(staged, COMMIT)
+                extra.unlink()
+                notice = self.destination / "linux-arm64/native/webgpu-headers-LICENSE"
+                original = notice.read_bytes()
+                notice.write_bytes(b"changed")
+                with self.assertRaisesRegex(ValueError, "byte mismatch"):
+                    STAGING.validate_xlib(staged, COMMIT)
+                notice.unlink()
+                with self.assertRaisesRegex(ValueError, "inventories"):
+                    STAGING.validate_xlib(staged, COMMIT)
+                notice.write_bytes(original)
 
     def test_xlib_selects_only_linux_from_combined_backend_package(self):
         package = self.package(package_id="ProGPU.Backend", entries=self.xlib_entries() +
