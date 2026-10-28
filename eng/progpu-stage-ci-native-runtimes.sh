@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 2 || $# -gt 4 ]]; then
-  echo "usage: $0 <ProGPU commit> <runtime staging directory> [DX12 staging directory] [Xlib staging directory]" >&2
+if [[ $# -lt 2 || $# -gt 6 ]]; then
+  echo "usage: $0 <ProGPU commit> <runtime staging directory> [DX12 staging directory] [Xlib staging directory] [Windows staging directory] [ProGPU source root]" >&2
   exit 2
 fi
 
@@ -10,6 +10,12 @@ progpu_commit="$1"
 runtime_stage="$2"
 dx12_stage="${3:-}"
 xlib_stage="${4:-}"
+windows_stage="${5:-}"
+producer_root="${6:-}"
+if [[ -n "${windows_stage}" && -z "${producer_root}" || -z "${windows_stage}" && -n "${producer_root}" ]]; then
+  echo "Windows staging requires both its destination and exact producer source root." >&2
+  exit 2
+fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 progpu_repository="${PROGPU_CI_REPOSITORY:-wieslawsoltes/ProGPU}"
 poll_seconds="${PROGPU_CI_POLL_SECONDS:-20}"
@@ -139,6 +145,10 @@ fi
 if [[ -n "${xlib_stage:-}" ]]; then
   stage_arguments+=(--xlib-package "${native_package%/*}/ProGPU.Backend.${package_version}.nupkg"
     --xlib-destination "${xlib_stage}")
+fi
+if [[ -n "${windows_stage:-}" ]]; then
+  stage_arguments+=(--windows-package "${native_package%/*}/ProGPU.Backend.${package_version}.nupkg"
+    --windows-destination "${windows_stage}" --producer-root "${producer_root}")
 fi
 python3 "${script_dir}/progpu-stage-release-native-packages.py" "${stage_arguments[@]}"
 

@@ -137,6 +137,9 @@ jobs:
       - name: Validate canonical native staging contract
         run: python3 eng/tests/test_canonical_native_staging.py -v
 
+      - name: Validate source Windows runtime ownership
+        run: python3 eng/tests/test_windows_source_assets.py --dotnet dotnet -v
+
       - name: Stage exact native drawing package dependency
         env:
           GH_TOKEN: ${{ github.token }}
@@ -148,7 +151,9 @@ jobs:
             "${submodule_commit}" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
-            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package"
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-wgpu-windows/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU"
 
       - name: Build canonical WinForms and WindowsFormsIntegration
         env:
@@ -378,7 +383,9 @@ jobs:
             "${submodule_commit}" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
-            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package"
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-wgpu-windows/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU"
 
       - name: Stage exact source-closure WebGPU runtime for native harnesses
         shell: bash
@@ -768,7 +775,9 @@ jobs:
             "${submodule_commit}" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-native/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
-            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package"
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-wgpu-windows/package" \
+            "${GITHUB_WORKSPACE}/external/ProGPU"
 
       - name: Validate source application Linux runtime assets
         run: python3 eng/tests/test_xlib_source_assets.py --runtime-root external/ProGPU/artifacts/progpu-xlib/package

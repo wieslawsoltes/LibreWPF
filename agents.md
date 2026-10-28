@@ -1,3 +1,12 @@
+Source Windows runtime staging selects the exact Backend package from the same
+whole-qualified producer as native/SDK and DXC. Determine capability from the
+producer commit, reuse its clean verifier, retain both architecture inventories
+and original bytes, and publish only after validation. Old qualified sources keep
+their original policy; missing new payloads must not silently select stock DLLs.
+The Backend target owns the shared eight files even in self-contained raw native
+artifacts. No pin or application qualification follows from staging controls.
+See docs/linux-runtime-staging.md.
+
 Source X11 taskbar visibility uses the existing advisory mapped-window request,
 independently of Win32 hidden-owner policy. Retain explicit desired state through
 creation and hide/show, exact live window/controller/thread and source-intent

@@ -85,3 +85,56 @@ declares `905d52ac1`; WPF consumes that revision with its own identical producer
 The equality gate remains unchanged, and the original rejected run is retained.
 Forms' complete 993-test Drawing source suite passes against this shared producer;
 fresh whole CI remains required for both coordinated consumer heads.
+
+
+## Windows producer staging preparation
+
+The helper also accepts a fifth Windows staging directory and sixth exact
+ProGPU source root. Existing two-, three- and four-argument callers retain their
+behavior. CI and release preparation pass the complete contract:
+
+```sh
+./eng/progpu-stage-ci-native-runtimes.sh "$qualified_progpu_commit" \
+  "$progpu_root/artifacts/progpu-native/package" \
+  "$progpu_root/artifacts/progpu-dx12/package" \
+  "$progpu_root/artifacts/progpu-xlib/package" \
+  "$progpu_root/artifacts/progpu-wgpu-windows/package" \
+  "$progpu_root"
+```
+
+The new Windows default payload belongs to `ProGPU.Backend`, separately from its
+optional DXC package. Native/SDK packages deliberately exclude these shared
+files. The extractor therefore selects both exact Windows prefixes from the same
+Backend nupkg, validates its version/repository/commit, and calls that exact clean
+producer checkout's `eng/progpu-wgpu-windows-runtime.py --verify` before publishing.
+This preserves the original eight DLL/receipt/license files per architecture
+without copying another repository's verifier or maintaining a second pin set.
+Linux staging now selects only its two prefixes from that combined package.
+
+Capability comes from the verifier tracked by the producer commit. An older
+qualified source with no verifier and no Windows payload keeps its original
+runtime policy. A deleted or locally changed new verifier, a mismatched source
+commit, unexpected old-source payload, missing architecture or failed verification
+rejects the candidate. No failed candidate is published and existing outputs are
+never overwritten. The release CLI exposes this as `--windows-package`,
+`--windows-destination` and `--producer-root`.
+
+The existing source executable/test boundary also imports the producer asset
+target for its staged Windows root. New-capability Windows executables fail
+before build when their required DLL/receipt is missing. Ordinary libraries and
+old qualified sources keep their behavior. If a self-contained raw native
+artifact is supplied, its exact eight shared Windows files are excluded from
+the separate native source-copy path; the Backend target owns their selection.
+Private renderer resources, SDK exclusions and source-root ownership stay intact.
+
+These are staging and source-asset controls. No ProGPU/Forms source pin changes,
+new native runtime execution, original input changes or application qualification
+are part of this preparation. The whole successful ProGPU producer remains a
+prerequisite for actual new-payload validation and consumer pin advancement.
+
+Validation of this preparation passes 23 package extraction/provenance controls,
+11 canonical workflow/whole-producer selection controls, and 19 actual MSBuild
+evaluations across seven Windows source-boundary controls. The current qualified
+producer's unchanged files also pass all 56 Linux source-asset and 32 native
+source-asset evaluations. The new-capability fixtures record imports and bytes;
+they do not contain or execute a replacement native producer.
