@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Invoke the real build function without launching a compiler or Windows app."""
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -64,6 +65,27 @@ catch { $caught = $_.Exception.Message }
         self.assertIn("-rebuild", result["arguments"])
         self.assertNotIn("-build", result["arguments"])
         self.assertEqual(result["caught"], "Building owned-test.csproj for x64 failed.")
+
+    def test_catalog_compile_scope_matches_actual_implementation_and_keeps_native_query(self):
+        host = os.environ.get("PROGPU_WPF_SOURCE_EVALUATION_DOTNET") or shutil.which("dotnet")
+        self.assertIsNotNone(host, "A configured .NET SDK is required for source item evaluation")
+        projects = {
+            "product": "src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj",
+            "tests": "src/Microsoft.DotNet.Wpf/tests/UnitTests/PresentationCore.Tests/PresentationCore.Tests.csproj",
+        }
+        portable_tests = {"PortableFontDataTests.cs", "PortableFontCollectionTests.cs", "PortableSystemFontDiscoveryTests.cs"}
+        for platform in ("Unix", "Windows_NT"):
+            items = {}
+            for kind, project in projects.items():
+                result = subprocess.run([host, "msbuild", str(ROOT / project), "-nologo", "-getItem:Compile",
+                                         "-p:Configuration=Release", "-p:Platform=x64", f"-p:OS={platform}"],
+                                        cwd=ROOT, text=True, capture_output=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr + result.stdout[-2000:])
+                values = json.loads(result.stdout[result.stdout.index("{"):])["Items"]["Compile"]
+                items[kind] = {v["Identity"].replace("\\", "/").rsplit("/", 1)[-1] for v in values}
+            self.assertEqual("PortableTextInterface.cs" in items["product"], platform != "Windows_NT")
+            self.assertEqual(items["tests"] & portable_tests, portable_tests if platform != "Windows_NT" else set())
+            self.assertIn("PortableDesktopTransformQueryTests.cs", items["tests"])
 
 
 if __name__ == "__main__":
