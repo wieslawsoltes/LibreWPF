@@ -546,18 +546,14 @@ namespace System.Windows.Interop
             bool isControlChar = false;
 
             // If the control is pressed but Alt is not, the char is control char.
-            try
+            // GetSystemModifierKeys reads the portable keyboard device when input is
+            // portable, where user32's GetKeyState does not exist.
+            ModifierKeys modifiers = GetSystemModifierKeys();
+            if ((modifiers & ModifierKeys.Control) != 0 &&
+                (modifiers & ModifierKeys.Alt) == 0 &&
+                Char.IsControl(charcode))
             {
-                if (((UnsafeNativeMethods.GetKeyState(NativeMethods.VK_CONTROL) & 0x8000) != 0) &&
-                    ((UnsafeNativeMethods.GetKeyState(NativeMethods.VK_MENU) & 0x8000) == 0) &&
-                    Char.IsControl(charcode))
-                {
-                    isControlChar = true;
-                }
-            }
-            catch(System.ComponentModel.Win32Exception)
-            {
-                System.Diagnostics.Debug.WriteLine("HwndMouseInputProvider: GetKeyState failed!");
+                isControlChar = true;
             }
 
             RawTextInputReport report = new RawTextInputReport(_source,
@@ -662,6 +658,16 @@ namespace System.Windows.Interop
         ///</summary>
         internal static ModifierKeys GetSystemModifierKeys()
         {
+            // Portable input owns its key state, and the portable runtime has no Win32 keyboard state to
+            // ask for: user32's stub has no GetKeyState, so the call below throws on the first key that
+            // reaches an HwndHost (and on HwndSource's mnemonic path), before the host can forward
+            // anything. Read the device that carries the state instead of the native call.
+            InputManager inputManager = InputManager.Current;
+            if (inputManager is not null && inputManager.UsesPortableInput)
+            {
+                return Keyboard.PrimaryDevice?.Modifiers ?? ModifierKeys.None;
+            }
+
             ModifierKeys modifierKeys = ModifierKeys.None;
 
             short keyState = UnsafeNativeMethods.GetKeyState(NativeMethods.VK_SHIFT);
