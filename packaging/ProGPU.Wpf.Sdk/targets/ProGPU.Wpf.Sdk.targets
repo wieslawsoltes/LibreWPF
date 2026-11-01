@@ -660,6 +660,20 @@
         Condition="'$(ProGpuWpfUseLibreWinForms)' == 'true' And '$(_ProGpuWpfPackageRoot)' != '' And '$(_ProGpuWpfPortableWinFormsCompatRuntimeTfm)' != '' And Exists('$(_ProGpuWpfPackageRoot)librewinforms.windowsformsintegration/$(ProGpuWpfLibreWinFormsPackageVersion)/lib/$(_ProGpuWpfPortableWinFormsCompatRuntimeTfm)/WindowsFormsIntegration.dll')" />
     </ItemGroup>
 
+    <!--
+      Tried (and reverted) a blanket force-copy of ProGPU.System.Drawing.Common here for every
+      UseWindowsForms=true project: the real (Microsoft-authored) System.Drawing.Common's
+      Font.FromHfont throws PlatformNotSupportedException unconditionally off Windows (called by
+      every System.Windows.Forms.Control's constructor via SystemFonts.DefaultFont - a deliberate
+      managed-code guard in dotnet/runtime, not a missing P/Invoke a shim could paper over), which
+      made the swap look necessary. But swapping the assembly identity wholesale broke OTHER,
+      unrelated code (e.g. WorkbenchStartup.InitializeWorkbench) that's compiled against and needs
+      the REAL assembly's exact identity (Version=10.0.0.0) for something else entirely - one
+      process can't have both under the same simple name. The real fix belongs at the actual
+      failure site instead: LibreWinForms.System.Windows.Forms's own portable Control - see its
+      constructor/SystemFonts usage.
+    -->
+
     <Copy SourceFiles="@(_ProGpuWpfPortableWinFormsCompatRuntimeAsset)"
           DestinationFiles="@(_ProGpuWpfPortableWinFormsCompatRuntimeAsset->'$(TargetDir)%(DestinationSubDirectory)%(Filename)%(Extension)')"
           SkipUnchangedFiles="false"
