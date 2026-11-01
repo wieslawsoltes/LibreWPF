@@ -7,6 +7,7 @@
 #if defined(__APPLE__)
 #include <pthread.h>
 #include <unistd.h>
+#include <mach-o/dyld.h>
 #elif defined(__linux__)
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -34,6 +35,22 @@ static progpu_intptr progpu_next_fake_handle = 2;
 #define PROGPU_DEF_WINDOW_PROC_A ((progpu_intptr)0x10001)
 #define PROGPU_DEF_WINDOW_PROC_W ((progpu_intptr)0x10002)
 #define PROGPU_FAKE_WINDOW_STATE_COUNT 256
+/* Win32's CW_USEDEFAULT (0x80000000, i.e. INT32_MIN) passed to CreateWindow(Ex) means "let the
+   system pick a default", not a literal coordinate/size. CreateWindowEx below used to store it
+   verbatim; GetWindowRect then computed right = x + width with width == INT32_MIN, producing a
+   nonsensical (often negative) rect that made System.Windows.Window.SetupInitialState throw
+   "ArgumentException: Width and Height must be non-negative" building a Size from it - crashing
+   on the very first window the app ever shows. Substitute real numbers instead, same as real
+   Windows does. */
+#define PROGPU_CW_USEDEFAULT ((int32_t)0x80000000)
+#define PROGPU_DEFAULT_WINDOW_X 100
+#define PROGPU_DEFAULT_WINDOW_Y 100
+#define PROGPU_DEFAULT_WINDOW_WIDTH 1024
+#define PROGPU_DEFAULT_WINDOW_HEIGHT 768
+/* Placeholder "the app has one monitor at (0,0)" bounds - see GetMonitorInfo below for why this
+   needs to be a plausible rect rather than all-zero. */
+#define PROGPU_DEFAULT_MONITOR_WIDTH 1920
+#define PROGPU_DEFAULT_MONITOR_HEIGHT 1080
 
 typedef struct progpu_window_state
 {
@@ -518,6 +535,82 @@ PROGPU_EXPORT progpu_intptr GetModuleHandle(const void* module_name)
     return GetModuleHandleW(module_name);
 }
 
+/* Unlike the GetActiveWindow/GetDesktopWindow stubs above, WPF's managed wrapper
+   (UnsafeNativeMethods.GetModuleFileName in UnsafeNativeMethodsCLR.cs) throws a Win32Exception
+   whenever this returns 0, with no caller-side fallback (MS.Internal.AppModel.IconHelper.
+   GetDefaultIconHandles calls it unconditionally from Window.UpdateIcon(), uncaught) - so this
+   has to actually succeed with the current process's real executable path, not just exist. */
+static int progpu_get_current_module_path(char* path, size_t path_capacity)
+{
+#if defined(__APPLE__)
+    uint32_t size = (uint32_t)path_capacity;
+    return _NSGetExecutablePath(path, &size) == 0;
+#elif defined(__linux__)
+    ssize_t size = readlink("/proc/self/exe", path, path_capacity - 1);
+    if (size < 0)
+    {
+        return 0;
+    }
+    path[size] = '\0';
+    return 1;
+#else
+    (void)path;
+    (void)path_capacity;
+    return 0;
+#endif
+}
+
+PROGPU_EXPORT int32_t GetModuleFileNameW(progpu_intptr module, uint16_t* buffer, uint32_t length)
+{
+    /* The shim only ever represents the current process image - every GetModuleHandle* variant
+       above returns the constant handle 1 - so any module handle maps to the same exe path. */
+    (void)module;
+    char path[4096];
+    if (buffer == NULL || length == 0 || !progpu_get_current_module_path(path, sizeof(path)))
+    {
+        return 0;
+    }
+
+    uint32_t copied = 0;
+    for (uint32_t i = 0; path[i] != '\0' && copied < length; i++)
+    {
+        buffer[copied++] = (uint16_t)(unsigned char)path[i];
+    }
+
+    if (copied == length)
+    {
+        /* Matches real Win32: a truncated result is NOT null-terminated and nSize is returned. */
+        return (int32_t)length;
+    }
+
+    buffer[copied] = 0;
+    return (int32_t)copied;
+}
+
+PROGPU_EXPORT int32_t GetModuleFileNameA(progpu_intptr module, char* buffer, uint32_t length)
+{
+    (void)module;
+    char path[4096];
+    if (buffer == NULL || length == 0 || !progpu_get_current_module_path(path, sizeof(path)))
+    {
+        return 0;
+    }
+
+    size_t path_len = strlen(path);
+    uint32_t copied = (uint32_t)(path_len < length ? path_len : length);
+    memcpy(buffer, path, copied);
+    if (copied < length)
+    {
+        buffer[copied] = '\0';
+    }
+    return (int32_t)copied;
+}
+
+PROGPU_EXPORT int32_t GetModuleFileName(progpu_intptr module, char* buffer, uint32_t length)
+{
+    return GetModuleFileNameA(module, buffer, length);
+}
+
 PROGPU_EXPORT int32_t GetModuleHandleExW(uint32_t flags, const void* module_name, progpu_intptr* module)
 {
     (void)flags;
@@ -659,6 +752,25 @@ PROGPU_EXPORT progpu_intptr SetActiveWindow(progpu_intptr window)
 PROGPU_EXPORT progpu_intptr GetActiveWindow(void)
 {
     return progpu_active_window;
+}
+
+/* Same "0 is a legitimate answer" shape as GetActiveWindow above. */
+PROGPU_EXPORT progpu_intptr GetDesktopWindow(void)
+{
+    return 0;
+}
+
+/* Window.ShowDialog() calls this uncaught but its own comment says "No need for use to
+   actually check the return value" and never inspects it - real Win32 returns FALSE when the
+   thread has no windows anyway, which is what the shim's fake-window bookkeeping would report
+   truthfully here too. Skipping the callback entirely (as if enumeration found nothing) is a
+   valid, documented outcome, not a stubbed-out error path. */
+PROGPU_EXPORT int32_t EnumThreadWindows(uint32_t thread_id, progpu_intptr callback, progpu_intptr l_param)
+{
+    (void)thread_id;
+    (void)callback;
+    (void)l_param;
+    return 0;
 }
 
 PROGPU_EXPORT progpu_intptr GetFocus(void)
@@ -932,11 +1044,34 @@ PROGPU_EXPORT progpu_intptr MonitorFromWindow(progpu_intptr window, uint32_t fla
     return 1;
 }
 
-PROGPU_EXPORT int32_t GetMonitorInfo(progpu_intptr monitor, void* info)
+/* SafeNativeMethods.GetMonitorInfo (SafeNativeMethodsCLR.cs) throws Win32Exception uncaught
+   whenever this returns false - unlike the other GetXxx stubs above whose 0/false return is a
+   documented, harmless "no result" case, this one has no fallback on the WPF side. It's called
+   from Window.CalculateCenterScreenPosition while positioning the very first window the app
+   shows (WindowStartupLocation.CenterScreen), so it has to succeed with a plausible rect, not
+   just exist. Layout matches NativeMethodsCLR.cs's MONITORINFOEX exactly: int cbSize; RECT
+   rcMonitor (4 int32); RECT rcWork (4 int32); int dwFlags; char[32] szDevice (untouched, no
+   caller here reads it). */
+PROGPU_EXPORT int32_t GetMonitorInfo(progpu_intptr monitor, int32_t* info)
 {
     (void)monitor;
-    (void)info;
-    return 0;
+    if (info == NULL)
+    {
+        return 0;
+    }
+
+    /* info[0] = cbSize (left as whatever the caller already set - Win32 doesn't require us to
+       rewrite it, only validate it, and we don't bother validating). */
+    info[1] = 0;                               /* rcMonitor.left */
+    info[2] = 0;                               /* rcMonitor.top */
+    info[3] = PROGPU_DEFAULT_MONITOR_WIDTH;     /* rcMonitor.right */
+    info[4] = PROGPU_DEFAULT_MONITOR_HEIGHT;    /* rcMonitor.bottom */
+    info[5] = 0;                               /* rcWork.left */
+    info[6] = 0;                               /* rcWork.top */
+    info[7] = PROGPU_DEFAULT_MONITOR_WIDTH;     /* rcWork.right */
+    info[8] = PROGPU_DEFAULT_MONITOR_HEIGHT;    /* rcWork.bottom */
+    info[9] = 1;                               /* dwFlags: MONITORINFOF_PRIMARY */
+    return 1;
 }
 
 PROGPU_EXPORT int32_t SendMessage(progpu_intptr window, int32_t message, progpu_intptr w_param, progpu_intptr l_param)
@@ -1082,17 +1217,8 @@ PROGPU_EXPORT progpu_intptr CreateWindowEx(
     progpu_intptr instance,
     void* parameter)
 {
-    (void)extended_style;
     (void)class_name;
     (void)window_name;
-    (void)style;
-    (void)x;
-    (void)y;
-    (void)width;
-    (void)height;
-    (void)parent;
-    (void)menu;
-    (void)instance;
     (void)parameter;
     progpu_intptr handle = progpu_allocate_fake_handle();
     progpu_window_state* state = progpu_get_window_state(handle, 1);
@@ -1103,10 +1229,10 @@ PROGPU_EXPORT progpu_intptr CreateWindowEx(
         state->parent = parent;
         state->id = menu == 0 ? 1 : menu;
         state->instance = instance == 0 ? 1 : instance;
-        state->x = x;
-        state->y = y;
-        state->width = width;
-        state->height = height;
+        state->x = x == PROGPU_CW_USEDEFAULT ? PROGPU_DEFAULT_WINDOW_X : x;
+        state->y = y == PROGPU_CW_USEDEFAULT ? PROGPU_DEFAULT_WINDOW_Y : y;
+        state->width = width == PROGPU_CW_USEDEFAULT ? PROGPU_DEFAULT_WINDOW_WIDTH : width;
+        state->height = height == PROGPU_CW_USEDEFAULT ? PROGPU_DEFAULT_WINDOW_HEIGHT : height;
         state->visible = (style & 0x10000000) != 0;
     }
 
@@ -1174,6 +1300,26 @@ PROGPU_EXPORT int32_t DestroyIcon(progpu_intptr icon)
     return 1;
 }
 
+/* MS.Internal.AppModel.IconHelper.GetDefaultIconHandles calls this uncaught but explicitly
+   documents "We don't really care about the return value. Handles will be invalid on error." -
+   a 0 return with the two handles left unset is exactly the documented error path, not a
+   fallback that needs real icon extraction. */
+PROGPU_EXPORT int32_t ExtractIconEx(const void* exe_file_name, int32_t icon_index, progpu_intptr* large_icon, progpu_intptr* small_icon, int32_t icon_count)
+{
+    (void)exe_file_name;
+    (void)icon_index;
+    (void)icon_count;
+    if (large_icon != NULL)
+    {
+        *large_icon = 0;
+    }
+    if (small_icon != NULL)
+    {
+        *small_icon = 0;
+    }
+    return 0;
+}
+
 PROGPU_EXPORT int32_t ShowWindow(progpu_intptr window, int32_t command)
 {
     progpu_window_state* state = progpu_get_window_state(window, 1);
@@ -1194,7 +1340,11 @@ PROGPU_EXPORT int32_t GetSystemMetrics(int32_t metric)
 {
     switch (metric)
     {
+        case 0:  return PROGPU_DEFAULT_MONITOR_WIDTH;  /* SM_CXSCREEN */
+        case 1:  return PROGPU_DEFAULT_MONITOR_HEIGHT; /* SM_CYSCREEN */
         case 4:  return 23; /* SM_CYCAPTION */
+        case 16: return PROGPU_DEFAULT_MONITOR_WIDTH;  /* SM_CXFULLSCREEN */
+        case 17: return PROGPU_DEFAULT_MONITOR_HEIGHT; /* SM_CYFULLSCREEN */
         case 30: return 30; /* SM_CXSIZE */
         case 31: return 18; /* SM_CYSIZE */
         case 32: return 4;  /* SM_CXSIZEFRAME */
