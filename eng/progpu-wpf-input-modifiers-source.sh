@@ -33,4 +33,4 @@ export LIBREWPF_TEST_MEDIA_BACKEND=Portable
   "${repo_root}/artifacts/bin/PresentationCore.Tests/${configuration}/net10.0-windows/PresentationCore.Tests.dll" \
   --filter-class System.Windows.Input.PortableInputOwnershipTests \
   --filter-method '*EventModifier*' \
-  --minimum-expected-tests 4 --fail-skips on --timeout 60s --no-progress
+  --minimum-expected-tests 7 --fail-skips on --timeout 60s --no-progress

@@ -4,6 +4,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using System.Windows.Interop;
 using ProGPU.Wpf.Interop;
 
 namespace System.Windows.Input;
@@ -129,6 +130,76 @@ public sealed class PortableInputOwnershipTests
             Assert.Equal(MouseButtonState.Pressed, mouse.LeftButton);
             mouse.ReleaseSourceButtons(retired);
             Assert.Equal(MouseButtonState.Pressed, mouse.LeftButton);
+        });
+    }
+
+    [PortableInputFact]
+    public void HwndEventModifierQueriesUseThePortableSnapshotAndRestorePhysicalState()
+    {
+        RunInUiApartment(() =>
+        {
+            var keyboard = Assert.IsType<PortableKeyboardDevice>(InputManager.Current.PrimaryKeyboardDevice);
+            keyboard.SetKeyStates(Key.RightCtrl, KeyStates.Down);
+            Assert.Equal(ModifierKeys.Control, HwndKeyboardInputProvider.GetSystemModifierKeys());
+            using (keyboard.PushEventModifiers(ModifierKeys.Shift | ModifierKeys.Alt))
+            {
+                Assert.Equal(ModifierKeys.Shift | ModifierKeys.Alt, HwndKeyboardInputProvider.GetSystemModifierKeys());
+                using (keyboard.PushEventModifiers(ModifierKeys.None))
+                {
+                    keyboard.SetKeyStates(Key.RightCtrl, KeyStates.None);
+                    Assert.Equal(ModifierKeys.None, HwndKeyboardInputProvider.GetSystemModifierKeys());
+                }
+                Assert.Equal(ModifierKeys.Shift | ModifierKeys.Alt, HwndKeyboardInputProvider.GetSystemModifierKeys());
+            }
+            Assert.Equal(ModifierKeys.None, HwndKeyboardInputProvider.GetSystemModifierKeys());
+        });
+    }
+
+    [PortableInputFact]
+    public void HwndEventModifiersClassifyControlTextWithoutWin32State()
+    {
+        RunInUiApartment(() =>
+        {
+            var keyboard = Assert.IsType<PortableKeyboardDevice>(InputManager.Current.PrimaryKeyboardDevice);
+            foreach (ModifierKeys modifiers in new[] { ModifierKeys.None, ModifierKeys.Shift,
+                ModifierKeys.Control, ModifierKeys.Control | ModifierKeys.Shift, ModifierKeys.Alt,
+                ModifierKeys.Control | ModifierKeys.Alt, ModifierKeys.Shift | ModifierKeys.Alt,
+                ModifierKeys.Control | ModifierKeys.Shift | ModifierKeys.Alt })
+            {
+                using var scope = keyboard.PushEventModifiers(modifiers);
+                bool control = modifiers is ModifierKeys.Control or (ModifierKeys.Control | ModifierKeys.Shift);
+                Assert.Equal(control, HwndKeyboardInputProvider.IsControlCharacter('\x03'));
+                Assert.Equal(control, HwndKeyboardInputProvider.IsControlCharacter('\t'));
+                Assert.Equal(control, HwndKeyboardInputProvider.IsControlCharacter('\u0085'));
+                Assert.False(HwndKeyboardInputProvider.IsControlCharacter('a'));
+                Assert.False(HwndKeyboardInputProvider.IsControlCharacter('\u03a9'));
+            }
+        });
+    }
+
+    [PortableInputFact]
+    public void HwndEventModifiersKeepNestedTextAndExceptionScopesIndependent()
+    {
+        RunInUiApartment(() =>
+        {
+            var keyboard = Assert.IsType<PortableKeyboardDevice>(InputManager.Current.PrimaryKeyboardDevice);
+            keyboard.SetKeyStates(Key.LeftCtrl, KeyStates.Down);
+            using (keyboard.PushEventModifiers(ModifierKeys.Alt))
+            {
+                Assert.False(HwndKeyboardInputProvider.IsControlCharacter('\x03'));
+                Action nestedFailure = () =>
+                {
+                    using var scope = keyboard.PushEventModifiers(ModifierKeys.Control);
+                    Assert.True(HwndKeyboardInputProvider.IsControlCharacter('\x03'));
+                    keyboard.SetKeyStates(Key.LeftCtrl, KeyStates.None);
+                    throw new InvalidOperationException("Nested input callback failed.");
+                };
+                Assert.Throws<InvalidOperationException>(nestedFailure);
+                Assert.Equal(ModifierKeys.Alt, HwndKeyboardInputProvider.GetSystemModifierKeys());
+                Assert.False(HwndKeyboardInputProvider.IsControlCharacter('\x03'));
+            }
+            Assert.Equal(ModifierKeys.None, HwndKeyboardInputProvider.GetSystemModifierKeys());
+            Assert.False(HwndKeyboardInputProvider.IsControlCharacter('\x03'));
         });
     }
 
