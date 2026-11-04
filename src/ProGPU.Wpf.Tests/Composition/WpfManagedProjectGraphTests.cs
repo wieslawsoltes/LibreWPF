@@ -62,9 +62,9 @@ public sealed class WpfManagedProjectGraphTests
     private static void AssertWindowsNativePassiveIdleWorkflow(string workflow)
     {
         Assert.Equal(13, workflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        // Thirteen checkout refs plus twenty-three exact-head artifact names,
-        // including the font/desktop source and native HWND query evidence.
-        Assert.Equal(36, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        // Thirteen checkout refs plus twenty-four exact-head artifact names,
+        // including the standalone SDK bundle and native query evidence.
+        Assert.Equal(37, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
         foreach (string architecture in new[] { "x64", "arm64" })
         {
             string jobName = architecture == "x64" ? "windows-native-mil-showcase" : "windows-arm64-native-mil-showcase";
@@ -98,8 +98,8 @@ public sealed class WpfManagedProjectGraphTests
     {
         string workflow = File.ReadAllText(FindRepoPath(".github", "workflows", "progpu-wpf-sdk.yml"));
         Assert.Equal(13, workflow.Split("ref: ${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        Assert.Equal(36, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
-        Assert.Equal(23, workflow.Split('\n').Count(line =>
+        Assert.Equal(37, workflow.Split("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringSplitOptions.None).Length - 1);
+        Assert.Equal(24, workflow.Split('\n').Count(line =>
             line.TrimStart().StartsWith("name: ", StringComparison.Ordinal) &&
             line.Contains("${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", StringComparison.Ordinal)));
         foreach (string evidence in new[] { "catalog-desktop-source-linux", "catalog-desktop-source-macos", "native-desktop-transform" })
@@ -123,6 +123,17 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("if: always()", upload, StringComparison.Ordinal);
         Assert.Contains("name: showcase-failure-diagnostics-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", upload, StringComparison.Ordinal);
         Assert.Contains("path: artifacts/showcase-failure/**", upload, StringComparison.Ordinal);
+        int bundleStart = workflow.IndexOf("      - name: Upload standalone SDK release bundle\n", StringComparison.Ordinal);
+        Assert.True(bundleStart >= 0);
+        int bundleEnd = workflow.IndexOf("\n  canonical-sdk-consumer:", bundleStart, StringComparison.Ordinal);
+        Assert.True(bundleEnd > bundleStart);
+        string bundle = workflow[bundleStart..bundleEnd];
+        Assert.Contains("name: librewpf-ci-bundle-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}", bundle, StringComparison.Ordinal);
+        Assert.Contains("artifacts/packages/Release/NonShipping/librewpf-preview-*.tar.gz\n", bundle, StringComparison.Ordinal);
+        Assert.Contains("artifacts/packages/Release/NonShipping/librewpf-preview-*.tar.gz.sha256", bundle, StringComparison.Ordinal);
+        Assert.Contains("if-no-files-found: error", bundle, StringComparison.Ordinal);
+        Assert.DoesNotContain("if: always()", bundle, StringComparison.Ordinal);
+        Assert.DoesNotContain("showcase-failure", bundle, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -13361,7 +13372,7 @@ public sealed class WpfManagedProjectGraphTests
         Assert.Contains("\"--runtime\",", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("\"${{ matrix.rid }}\",", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("if ($IsWindows)", proGpuBuildWorkflow, StringComparison.Ordinal);
-        Assert.Contains("\"FullyQualifiedName~DiagnosticsLoggingSourceTests|FullyQualifiedName~StrongNameSigningTests|FullyQualifiedName~WindowsDpiAwarenessTests|FullyQualifiedName~WindowsGdiBitmapTests|FullyQualifiedName~GpuBufferDeviceLossTests|FullyQualifiedName~GpuCoverageUploadTests|FullyQualifiedName~OwnedGpuFinalizerTests|FullyQualifiedName~GpuSeriesFinalizerTests|FullyQualifiedName~PipelineCacheFinalizerTests|FullyQualifiedName~NativeMouseButtonPacketTests|FullyQualifiedName~NativeWindowInputWindowsTests.OriginalButtonPacket|FullyQualifiedName~NativeWindowInputWindowsTests.CloseEnabledPolicy\"", proGpuBuildWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\"FullyQualifiedName~DiagnosticsLoggingSourceTests|FullyQualifiedName~StrongNameSigningTests|FullyQualifiedName~WindowsDpiAwarenessTests|FullyQualifiedName~WindowsGdiBitmapTests|FullyQualifiedName~GpuBufferDeviceLossTests|FullyQualifiedName~GpuCoverageUploadTests|FullyQualifiedName~OwnedGpuFinalizerTests|FullyQualifiedName~GpuSeriesFinalizerTests|FullyQualifiedName~PipelineCacheFinalizerTests|FullyQualifiedName~SkImageFinalizerRetirementTests|FullyQualifiedName~SkSurfaceFinalizerRetirementTests|FullyQualifiedName~CacheSamplerRetirementTests|FullyQualifiedName~NativeMouseButtonPacketTests|FullyQualifiedName~NativeWindowOwnerRegistryTests|FullyQualifiedName~NativeWindowInputWindowsTests.OriginalButtonPacket|FullyQualifiedName~NativeWindowInputWindowsTests.CloseEnabledPolicy\"", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("dotnet @testArgs", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("uses: actions/upload-artifact@v", proGpuBuildWorkflow, StringComparison.Ordinal);
         Assert.Contains("name: progpu-packages-linux-x64", proGpuBuildWorkflow, StringComparison.Ordinal);

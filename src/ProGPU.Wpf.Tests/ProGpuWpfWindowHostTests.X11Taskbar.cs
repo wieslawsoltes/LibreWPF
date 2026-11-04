@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Threading;
 using Xunit;
 
 namespace ProGPU.Wpf.Tests;
@@ -95,7 +95,22 @@ public sealed partial class ProGpuWpfWindowHostTests
         using var fixture = new RenderCloseFixture();
         fixture.Probe.Visible = false;
         Assert.False(fixture.Host.SetX11TaskbarVisibility(false));
-        Assert.False(Task.Run(() => fixture.Host.SetX11TaskbarVisibility(true)).GetAwaiter().GetResult());
+        int ownerThread = Environment.CurrentManagedThreadId;
+        int foreignThread = ownerThread;
+        bool accepted = true;
+        Exception? failure = null;
+        // A synchronously waited Task may execute inline on the creating thread.
+        // Use an actual foreign thread to exercise the ownership rejection.
+        var thread = new Thread(() =>
+        {
+            foreignThread = Environment.CurrentManagedThreadId;
+            failure = Record.Exception(() => accepted = fixture.Host.SetX11TaskbarVisibility(true));
+        }) { IsBackground = true };
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(5)));
+        Assert.NotEqual(ownerThread, foreignThread);
+        Assert.Null(failure);
+        Assert.False(accepted);
         fixture.Host.X11TaskbarVisibilitySetterOverride = (_, value) => { Assert.False(value); return true; };
         fixture.Host.Show();
     }
