@@ -185,7 +185,8 @@ public static class ProGpuWpfNativeMediaServices {
 public static class WpfPortableWindowActivation {
  public static object CreateHostOptions(object window, ProGpuWpfWindowOptions options) => options;
  public static bool TryRegisterPresentationFrameworkActivation(Func<object, ProGpuWpfWindowHost> create = null) {
-  Console.WriteLine("WPF ACTIVATION"); create?.Invoke(new object()); return true;
+  Console.WriteLine("WPF ACTIVATION"); create?.Invoke(new object());
+  return Environment.GetEnvironmentVariable("LIBREWPF_TEST_REJECT_ACTIVATION") != "1";
  }
  public static void TryRegisterPresentationCoreClipboardService() => Console.WriteLine("WPF CLIPBOARD");
 }
@@ -239,6 +240,23 @@ public static class ProGpuPlatform {
                         expected.append("WPF CLIPBOARD")
                     expected.append("ENTRY")
                     self.assertEqual(expected, run(root, str(app_output / (app + ".dll"))).splitlines())
+                    # A missing source registration must fail before application
+                    # entry or clipboard setup, never fall through to fake HWNDs.
+                    # The real SDK initializer is compiled above; only the
+                    # activation provider is this fixture's deliberate double.
+                    reject_environment = dict(os.environ, LIBREWPF_TEST_REJECT_ACTIVATION="1")
+                    rejected = subprocess.run(
+                        [DOTNET, str(app_output / (app + ".dll"))], cwd=root,
+                        env=reject_environment, text=True, stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT, timeout=30)
+                    if "WPF ACTIVATION" in expected:
+                        self.assertNotEqual(0, rejected.returncode, rejected.stdout)
+                        self.assertIn("requires the source-built typed WPF activation service", rejected.stdout)
+                        self.assertNotIn("ENTRY", rejected.stdout.splitlines())
+                        self.assertNotIn("WPF CLIPBOARD", rejected.stdout.splitlines())
+                    else:
+                        self.assertEqual(0, rejected.returncode, rejected.stdout)
+                        self.assertEqual(expected, rejected.stdout.splitlines())
                     host_output = root / host / "bin/Release/net10.0"
                     for dependency in host_output.glob("Test*.dll"):
                         dependency.unlink()
