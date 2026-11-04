@@ -190,6 +190,9 @@ public sealed partial class ProGpuCompositionCommandSink :
 
     private void AddNativeCommand(global::ProGPU.Scene.RenderCommand command)
     {
+        // Adapted WPF pens retain source units. Let the shared stroke compiler
+        // apply the actual transform once, including caps, dashes and joins.
+        command.IsPenThicknessLocal = command.Pen is not null;
         command.HitTestId = _activeHitTestId;
         NativeContext.Commands.Add(command);
     }
