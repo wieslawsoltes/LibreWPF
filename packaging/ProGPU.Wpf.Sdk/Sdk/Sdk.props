@@ -37,6 +37,10 @@
   <Import Sdk="Microsoft.NET.Sdk.WindowsDesktop" Project="Sdk.props" />
 
   <PropertyGroup>
+    <!-- Another SDK (for example Web) can import .NET targets before this SDK's
+         targets. Apply portable desktop policy at that first import, after the
+         project's own properties, while retaining any existing SDK hooks. -->
+    <BeforeMicrosoftNETSdkTargets>$(BeforeMicrosoftNETSdkTargets);$(MSBuildThisFileDirectory)..\targets\ProGPU.Wpf.Sdk.BeforeNETSdk.targets</BeforeMicrosoftNETSdkTargets>
     <!-- NuGet's generated buildTransitive imports use NuGetPackageRoot. Keep
          them on the same cache as RestorePackagesPath so portable font and
          notice assets are not silently omitted by package-mode consumers. -->

@@ -74,6 +74,16 @@ the native WindowsDesktop SDK imports and Windows-targeting validation; it is
 not a portable runtime configuration. Public desktop flags do not qualify
 trimming or NativeAOT, and their existing SDK restrictions remain in force.
 
+The same policy applies when LibreWPF is a secondary SDK, including
+`<Project Sdk="Microsoft.NET.Sdk.Web">` with a child
+`<Sdk Name="LibreWPF.Sdk" Version="0.1.0-preview.70" />`.
+`UseWindowsForms=true` selects portable Forms while the Web SDK retains its
+ASP.NET Core framework reference. The portable desktop policy runs before the
+first .NET SDK targets import, after project properties have been read; existing
+`BeforeMicrosoftNETSdkTargets` hooks and the explicit native opt-out are retained.
+Upgrade and restore the SDK to apply this fix; suppressing `LWFDRAW001` would
+leave incompatible Drawing assemblies selected.
+
 Windows, macOS, and Linux are supported runtime targets. A Windows RID restores the same platform-independent `LibreWPF.Transport` payload as the other hosts; no `runtime.win-*` LibreWPF companion package is required or published.
 
 The SDK also supplies the WPF markup compiler defaults and portable runtime-framework default needed by the current build lane, so applications do not need ProGPU-specific item includes, PresentationBuildTasks compatibility properties, or runtime-version pins.
