@@ -483,6 +483,15 @@ jobs:
             artifacts/packages/Release/NonShipping/NuGet.config
           if-no-files-found: error
 
+      - name: Upload standalone SDK release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: librewpf-ci-bundle-${{ env.PROGPU_WPF_QUALIFIED_COMMIT }}
+          path: |
+            artifacts/packages/Release/NonShipping/librewpf-preview-*.tar.gz
+            artifacts/packages/Release/NonShipping/librewpf-preview-*.tar.gz.sha256
+          if-no-files-found: error
+
   canonical-sdk-consumer:
     name: Canonical LibreWPF SDK package consumer
     needs:
