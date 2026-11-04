@@ -243,16 +243,17 @@ public sealed partial class WpfPortableWindowActivationTests
         service.Callbacks!.SetOwner!(childActivation!, owner);
         Assert.Same(ownerHost, Assert.Single(owners));
         accepted = false;
+        Assert.Throws<PlatformNotSupportedException>(() => service.Callbacks.SetOwner(childActivation!, owner));
         Assert.Throws<PlatformNotSupportedException>(() => service.Callbacks.SetOwner(childActivation!, null));
         accepted = true;
         service.Callbacks.SetOwner(childActivation!, null);
-        Assert.Equal(3, owners.Count); // Rejected clearing did not erase the retained relation.
-        Assert.Null(owners[2]);
+        Assert.Equal(4, owners.Count); // Rejected setting/clearing did not erase the retained relation.
+        Assert.Null(owners[3]);
         Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, child));
         Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, new object()));
         ownerActivation!.Dispose();
         Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, owner));
-        Assert.Equal(3, owners.Count);
+        Assert.Equal(4, owners.Count);
     }
 
     [Fact]

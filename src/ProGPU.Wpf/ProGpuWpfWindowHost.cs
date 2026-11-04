@@ -1167,18 +1167,25 @@ public unsafe sealed class ProGpuWpfWindowHost : IDisposable
         return context;
     }
 
+    // Closing handlers may synchronously open an owned confirmation before
+    // deciding to cancel. Once that callback ends, accepted close stays retired.
+    private bool CanAcceptNativeOwnedWindow => !_isDisposed &&
+        (!_hasNativeWindowCloseStarted || _isInNativeWindowCloseCallback);
+
     internal bool TrySetNativeOwner(ProGpuWpfWindowHost? owner)
     {
         ThrowIfDisposed();
         if (ReferenceEquals(owner, this) || _hasNativeWindowCloseStarted ||
-            owner is { _isDisposed: true } || owner is { _hasNativeWindowCloseStarted: true })
+            owner != null && !owner.CanAcceptNativeOwnedWindow)
             return false;
         if (NativeOwnerSetterOverride is { } setter) return setter(owner);
         // An owner must already possess a native identity. Never create/show an
         // unrelated source merely to satisfy an ownership request.
         if (owner != null && owner._window?.IsInitialized != true) return false;
         if (_window?.IsInitialized != true) InitializeHidden();
+        if (owner != null && !owner.CanAcceptNativeOwnedWindow) return false;
         if (_windowController?.TrySetOwner(owner?._windowController) != true) return false;
+        if (owner != null && !owner.CanAcceptNativeOwnedWindow) return false;
         try
         {
             // The controller retains the explicit source owner; the WPF policy
