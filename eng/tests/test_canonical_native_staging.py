@@ -18,6 +18,8 @@ class CanonicalNativeStagingTests(unittest.TestCase):
     def staging_step(self):
         workflow = WORKFLOW.read_text()
         canonical = workflow.split("\n  canonical-winforms-integration:\n", 1)[1].split("\n  portable-source-contracts:\n", 1)[0]
+        self.assertIn('ProGpuIncludeDawnSystemWarp: "true"', canonical)
+        self.assertIn("ProGpuDawnSystemWarpPayloadRoot: ${{ github.workspace }}/external/ProGPU/artifacts/progpu-dawn-system-warp/package", canonical)
         name = "      - name: Stage exact native drawing package dependency\n"
         self.assertLess(canonical.index(name), canonical.index("      - name: Build canonical WinForms and WindowsFormsIntegration\n"))
         step = canonical.split(name, 1)[1].split("\n      - name:", 1)[0]
@@ -48,7 +50,7 @@ class CanonicalNativeStagingTests(unittest.TestCase):
     def test_stages_exact_checkout_into_its_native_package_root(self):
         status, arguments, root = self.run_step()
         self.assertEqual(status, 0)
-        self.assertEqual(arguments, ["a" * 40, root + "/external/ProGPU/artifacts/progpu-native/package", root + "/external/ProGPU/artifacts/progpu-dx12/package", root + "/external/ProGPU/artifacts/progpu-xlib/package", root + "/external/ProGPU/artifacts/progpu-wgpu-windows/package", root + "/external/ProGPU"])
+        self.assertEqual(arguments, ["a" * 40, root + "/external/ProGPU/artifacts/progpu-native/package", root + "/external/ProGPU/artifacts/progpu-dx12/package", root + "/external/ProGPU/artifacts/progpu-xlib/package", root + "/external/ProGPU/artifacts/progpu-wgpu-windows/package", root + "/external/ProGPU", root + "/external/ProGPU/artifacts/progpu-dawn-system-warp/package"])
 
     def test_failed_producer_staging_fails_the_step(self):
         status, arguments, _ = self.run_step(helper_status=23)
@@ -66,6 +68,9 @@ class ReleaseNativeStagingTests(unittest.TestCase):
 
     def native_step(self):
         workflow = self.workflow.read_text()
+        self.assertIn('ProGpuIncludeDawnSystemWarp: "true"', workflow)
+        self.assertIn('--dawn-package "${PROGPU_WPF_PREPACKAGED_PROGPU_DIR}/ProGPU.Backend.Dawn.${PROGPU_WPF_PROGPU_PACKAGE_VERSION}.nupkg"', workflow)
+        self.assertIn('--dawn-destination "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dawn-system-warp/package"', workflow)
         names = ["Stage exact ProGPU release packages",
                  "Stage native runtimes from exact ProGPU release package",
                  "Build canonical LibreWinForms package closure",

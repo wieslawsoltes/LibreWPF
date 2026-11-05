@@ -138,3 +138,25 @@ evaluations across seven Windows source-boundary controls. The current qualified
 producer's unchanged files also pass all 56 Linux source-asset and 32 native
 source-asset evaluations. The new-capability fixtures record imports and bytes;
 they do not contain or execute a replacement native producer.
+## Windows Dawn companions in framework packages
+
+The optional seventh CI-staging argument selects the original `ProGPU.Backend.Dawn`
+package from the same downloaded whole-successful Build archive. Release staging
+accepts the corresponding explicit package and destination. Both routes require
+the exact clean producer checkout and invoke its own PowerShell companion verifier.
+All six original files—DLL, receipt and notice for each Windows architecture—must
+be present before publishing the new staging directory. Failed verification cannot
+publish a partial companion directory or overwrite an existing one.
+
+The existing package-producing jobs explicitly set `ProGpuIncludeDawnSystemWarp`
+and `ProGpuDawnSystemWarpPayloadRoot`. Staging alone did not opt into the producer's
+optional pack target: the prior Forms91 source-first archive contained no companion
+entries despite successful CI. Ordinary ProGPU packaging keeps its existing default;
+this change supplies the complete selected producer closure in framework packages.
+
+The actual six files from qualified ProGPU `2e9e434959ddb43922061c6a1e03efc390739adb`
+pass its original verifier and retain identical bytes after staging. The incomplete
+Forms91 package is rejected. Offline controls also reject missing/extra files,
+verifier failure, mismatched source/package provenance, modified verifier inputs and
+existing destinations. These are package-preparation checks; final consumer CI,
+original source pixels and desktop acceptance remain independent requirements.

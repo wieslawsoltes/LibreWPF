@@ -119,6 +119,75 @@ class ReleaseNativePackagesTests(unittest.TestCase):
             entries.extend((f"runtimes/{rid}/native/{name}", data) for name, data in payload.items())
         return entries
 
+    def dawn_producer(self):
+        # Owned delegation fixture, not a native companion or runtime verifier.
+        producer, _ = self.producer()
+        (producer / "eng/dawn-system-warp").mkdir()
+        (producer / "eng/dawn-system-warp/inputs.json").write_text("{}\n")
+        (producer / "eng/dawn-system-warp/packaging.targets").write_text("<Project/>\n")
+        (producer / "eng/validate-dawn-system-warp-payload.ps1").write_text('''param([string]$PayloadRoot)
+$ErrorActionPreference = 'Stop'
+foreach ($rid in @('win-x64','win-arm64')) {
+  foreach ($name in @('progpu_dawn_system_warp.dll','progpu-dawn-system-warp.json','Dawn-LICENSE.txt')) {
+    $path = Join-Path $PayloadRoot "$rid/native/$name"
+    if ([IO.File]::ReadAllText($path) -cne "original/$rid/$name") { throw 'Changed owned fixture' }
+  }
+}
+''')
+        subprocess.run(["git", "-C", str(producer), "add", "."], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(producer), "-c", "user.name=Control", "-c",
+                        "user.email=control@example.invalid", "commit", "-m", "Dawn delegation fixture"],
+                       check=True, capture_output=True)
+        commit = subprocess.check_output(["git", "-C", str(producer), "rev-parse", "HEAD"], text=True).strip()
+        return producer, commit
+
+    def dawn_entries(self):
+        return [(f"buildTransitive/runtimes/{rid}/native/{name}", f"original/{rid}/{name}".encode())
+                for rid in ("win-x64", "win-arm64") for name in
+                ("progpu_dawn_system_warp.dll", "progpu-dawn-system-warp.json", "Dawn-LICENSE.txt")]
+
+    def test_dawn_preserves_both_exact_inventories_after_owned_verification(self):
+        producer, commit = self.dawn_producer()
+        entries = self.dawn_entries()
+        package = self.package(package_id="ProGPU.Backend.Dawn", commit=commit, entries=entries)
+        self.assertEqual(6, STAGING.stage_dawn(package, self.destination, VERSION, commit, producer))
+        for name, data in entries:
+            self.assertEqual(data, (self.destination / name.removeprefix("buildTransitive/runtimes/")).read_bytes())
+
+    def test_dawn_missing_extra_and_changed_payloads_never_publish(self):
+        producer, commit = self.dawn_producer()
+        original = self.dawn_entries()
+        for entries, failure in ((original[:-1], ValueError),
+                (original + [("buildTransitive/runtimes/win-x64/native/extra.dll", b"extra")], ValueError),
+                ([(n, b"changed" if n.endswith("win-arm64/native/progpu_dawn_system_warp.dll") else b)
+                  for n, b in original], subprocess.CalledProcessError)):
+            package = self.package(package_id="ProGPU.Backend.Dawn", commit=commit, entries=entries)
+            with self.subTest(entries=len(entries)), self.assertRaises(failure):
+                STAGING.stage_dawn(package, self.destination, VERSION, commit, producer)
+            self.assertFalse(self.destination.exists())
+
+    def test_dawn_rejects_wrong_source_package_and_dirty_verifier(self):
+        producer, commit = self.dawn_producer()
+        package = self.package(package_id="ProGPU.Backend.Dawn", commit=COMMIT, entries=self.dawn_entries())
+        with self.assertRaisesRegex(ValueError, "provenance"):
+            STAGING.stage_dawn(package, self.destination, VERSION, commit, producer)
+        with self.assertRaisesRegex(ValueError, "source must match"):
+            STAGING.stage_dawn(package, self.destination, VERSION, COMMIT, producer)
+        package = self.package(package_id="ProGPU.Backend.Dawn", commit=commit, entries=self.dawn_entries())
+        (producer / "eng/dawn-system-warp/inputs.json").write_text('{"changed":true}')
+        with self.assertRaisesRegex(ValueError, "local changes"):
+            STAGING.stage_dawn(package, self.destination, VERSION, commit, producer)
+        self.assertFalse(self.destination.exists())
+
+    def test_dawn_existing_destination_is_preserved(self):
+        producer, commit = self.dawn_producer()
+        package = self.package(package_id="ProGPU.Backend.Dawn", commit=commit, entries=self.dawn_entries())
+        self.destination.mkdir()
+        (self.destination / "original").write_text("caller owned")
+        with self.assertRaisesRegex(ValueError, "already exist"):
+            STAGING.stage_dawn(package, self.destination, VERSION, commit, producer)
+        self.assertEqual("caller owned", (self.destination / "original").read_text())
+
     def test_xlib_preserves_both_architectures_and_extensionless_notices(self):
         entries = self.xlib_entries()
         package = self.package(package_id="ProGPU.Backend", entries=entries)
@@ -292,7 +361,7 @@ for name in names: assert (a.verify/name).read_bytes() == ('original/'+a.rid+'/'
 class CiNativePackageSelectionTests(unittest.TestCase):
     """Run the actual CI selection block with an argument-only extraction stub."""
 
-    def select(self, versions=(VERSION,), status=0, dx12=False, xlib=False, windows=False):
+    def select(self, versions=(VERSION,), status=0, dx12=False, xlib=False, windows=False, dawn=False):
         with tempfile.TemporaryDirectory(prefix="ci-native-selection-") as temporary:
             root = Path(temporary)
             artifacts = root / "artifact"
@@ -313,6 +382,8 @@ class CiNativePackageSelectionTests(unittest.TestCase):
             if windows:
                 environment["windows_stage"] = str(root / "windows")
                 environment["producer_root"] = str(root / "producer")
+            if dawn:
+                environment["dawn_stage"] = str(root / "dawn")
             script = '''set -euo pipefail
 python3() { printf '%s\\n' "$@" > "$RECEIPT"; return "$STAGE_STATUS"; }
 ''' + block
@@ -349,6 +420,13 @@ python3() { printf '%s\\n' "$@" > "$RECEIPT"; return "$STAGE_STATUS"; }
     def test_failed_pair_extraction_stops_ci_staging(self):
         status, _, _ = self.select(status=23)
         self.assertEqual(status, 23)
+
+    def test_dawn_uses_same_archive_version_as_other_native_packages(self):
+        status, arguments, root = self.select(windows=True, dawn=True)
+        self.assertEqual(0, status)
+        self.assertEqual(["--dawn-package", str(root / f"artifact/ProGPU.Backend.Dawn.{VERSION}.nupkg"),
+                          "--dawn-destination", str(root / "dawn")], arguments[-4:])
+        self.assertIn(str(root / "producer"), arguments)
 
     def test_optional_xlib_uses_the_same_successful_producer_version(self):
         status, arguments, root = self.select(dx12=True, xlib=True)

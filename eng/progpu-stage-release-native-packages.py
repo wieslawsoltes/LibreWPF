@@ -33,6 +33,35 @@ def stage_dx12(package, destination, version, commit):
                             "buildTransitive/runtimes/"),), destination, version, commit)
 
 
+def stage_dawn(package, destination, version, commit, producer_root):
+    """Publish both original Windows companions only after their owner's verifier."""
+    producer = Path(producer_root).resolve(strict=True)
+    actual = subprocess.check_output(["git", "-C", str(producer), "rev-parse", "HEAD"],
+                                     text=True, timeout=30).strip()
+    if actual != commit:
+        raise ValueError("Dawn producer source must match the exact package commit")
+    paths = ["eng/validate-dawn-system-warp-payload.ps1", "eng/dawn-system-warp/inputs.json",
+             "eng/dawn-system-warp/packaging.targets"]
+    subprocess.run(["git", "-C", str(producer), "ls-files", "--error-unmatch", *paths],
+                   check=True, capture_output=True, timeout=30)
+    modified = subprocess.check_output(["git", "-C", str(producer), "diff", "--name-only", "HEAD", "--", *paths],
+                                       text=True, timeout=30).strip()
+    if modified or any((producer / path).is_symlink() for path in paths):
+        raise ValueError("Dawn producer verifier or original inputs have local changes")
+    expected = {f"{rid}/native/{name}" for rid in ("win-x64", "win-arm64") for name in
+                ("progpu_dawn_system_warp.dll", "progpu-dawn-system-warp.json", "Dawn-LICENSE.txt")}
+
+    def validate(staged, _commit):
+        actual = {path.relative_to(staged).as_posix() for path in staged.rglob("*") if path.is_file()}
+        if actual != expected:
+            raise ValueError("Dawn staging requires both exact Windows companion inventories")
+        subprocess.run(["pwsh", "-NoProfile", "-File", str(producer / paths[0]), "-PayloadRoot", str(staged)],
+                       check=True, timeout=60)
+
+    return stage_payloads(((package, "ProGPU.Backend.Dawn", "buildTransitive/runtimes/",
+                            "buildTransitive/runtimes/"),), destination, version, commit, validate=validate)
+
+
 def validate_xlib(staged, commit):
     files = {"libwgpu_native.so", "LICENSE.MIT", "LICENSE.APACHE",
              "wgpu-LICENSE.MIT", "wgpu-LICENSE.APACHE", "webgpu-headers-LICENSE"}
@@ -200,13 +229,19 @@ def main():
     parser.add_argument("--windows-package", type=Path)
     parser.add_argument("--windows-destination", type=Path)
     parser.add_argument("--producer-root", type=Path)
+    parser.add_argument("--dawn-package", type=Path)
+    parser.add_argument("--dawn-destination", type=Path)
     args = parser.parse_args()
     if (args.dx12_package is None) != (args.dx12_destination is None):
         parser.error("DX12 staging requires both its exact package and destination")
     if (args.xlib_package is None) != (args.xlib_destination is None):
         parser.error("Xlib staging requires both its exact package and destination")
-    if any(value is not None for value in (args.windows_package, args.windows_destination, args.producer_root)) and not all(value is not None for value in (args.windows_package, args.windows_destination, args.producer_root)):
+    if any(value is not None for value in (args.windows_package, args.windows_destination)) and not all(value is not None for value in (args.windows_package, args.windows_destination, args.producer_root)):
         parser.error("Windows staging requires its exact Backend package, destination and producer source root")
+    if any(value is not None for value in (args.dawn_package, args.dawn_destination)) and not all(value is not None for value in (args.dawn_package, args.dawn_destination, args.producer_root)):
+        parser.error("Dawn staging requires its exact package, destination and producer source root")
+    if args.producer_root is not None and args.windows_package is None and args.dawn_package is None:
+        parser.error("Producer source root requires Windows or Dawn staging")
     count = stage(args.native, args.sdk, args.destination, args.version, args.commit)
     print(f"Staged {count} original native runtime/SDK/license files at {args.commit}.")
     if args.dx12_package is not None:
@@ -218,6 +253,9 @@ def main():
     if args.windows_package is not None:
         count = stage_windows(args.windows_package, args.windows_destination, args.version, args.commit, args.producer_root)
         print(f"Staged {count} original Windows runtime/receipt/license files at {args.commit}; zero retains the old producer capability.")
+    if args.dawn_package is not None:
+        count = stage_dawn(args.dawn_package, args.dawn_destination, args.version, args.commit, args.producer_root)
+        print(f"Staged {count} original Dawn companion/receipt/license files at {args.commit}.")
 
 
 if __name__ == "__main__":

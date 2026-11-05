@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 2 || $# -gt 6 ]]; then
-  echo "usage: $0 <ProGPU commit> <runtime staging directory> [DX12 staging directory] [Xlib staging directory] [Windows staging directory] [ProGPU source root]" >&2
+if [[ $# -lt 2 || $# -gt 7 ]]; then
+  echo "usage: $0 <ProGPU commit> <runtime staging directory> [DX12 staging directory] [Xlib staging directory] [Windows staging directory] [ProGPU source root] [Dawn staging directory]" >&2
   exit 2
 fi
 
@@ -12,8 +12,13 @@ dx12_stage="${3:-}"
 xlib_stage="${4:-}"
 windows_stage="${5:-}"
 producer_root="${6:-}"
+dawn_stage="${7:-}"
 if [[ -n "${windows_stage}" && -z "${producer_root}" || -z "${windows_stage}" && -n "${producer_root}" ]]; then
   echo "Windows staging requires both its destination and exact producer source root." >&2
+  exit 2
+fi
+if [[ -n "${dawn_stage}" && -z "${producer_root}" ]]; then
+  echo "Dawn staging requires the exact producer source root." >&2
   exit 2
 fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -149,6 +154,10 @@ fi
 if [[ -n "${windows_stage:-}" ]]; then
   stage_arguments+=(--windows-package "${native_package%/*}/ProGPU.Backend.${package_version}.nupkg"
     --windows-destination "${windows_stage}" --producer-root "${producer_root}")
+fi
+if [[ -n "${dawn_stage:-}" ]]; then
+  stage_arguments+=(--dawn-package "${native_package%/*}/ProGPU.Backend.Dawn.${package_version}.nupkg"
+    --dawn-destination "${dawn_stage}")
 fi
 python3 "${script_dir}/progpu-stage-release-native-packages.py" "${stage_arguments[@]}"
 

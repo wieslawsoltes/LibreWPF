@@ -105,6 +105,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
+    env:
+      ProGpuIncludeDawnSystemWarp: "true"
+      ProGpuDawnSystemWarpPayloadRoot: ${{ github.workspace }}/external/ProGPU/artifacts/progpu-dawn-system-warp/package
+
     steps:
       - name: Checkout aligned source graph
         uses: actions/checkout@v4
@@ -153,7 +157,8 @@ jobs:
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-wgpu-windows/package" \
-            "${GITHUB_WORKSPACE}/external/ProGPU"
+            "${GITHUB_WORKSPACE}/external/ProGPU" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dawn-system-warp/package"
 
       - name: Build canonical WinForms and WindowsFormsIntegration
         env:
@@ -330,6 +335,10 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 90
 
+    env:
+      ProGpuIncludeDawnSystemWarp: "true"
+      ProGpuDawnSystemWarpPayloadRoot: ${{ github.workspace }}/external/ProGPU/artifacts/progpu-dawn-system-warp/package
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -385,7 +394,8 @@ jobs:
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-wgpu-windows/package" \
-            "${GITHUB_WORKSPACE}/external/ProGPU"
+            "${GITHUB_WORKSPACE}/external/ProGPU" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dawn-system-warp/package"
 
       - name: Stage exact source-closure WebGPU runtime for native harnesses
         shell: bash
@@ -734,6 +744,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
+    env:
+      ProGpuIncludeDawnSystemWarp: "true"
+      ProGpuDawnSystemWarpPayloadRoot: ${{ github.workspace }}/external/ProGPU/artifacts/progpu-dawn-system-warp/package
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -786,7 +800,8 @@ jobs:
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dx12/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-xlib/package" \
             "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-wgpu-windows/package" \
-            "${GITHUB_WORKSPACE}/external/ProGPU"
+            "${GITHUB_WORKSPACE}/external/ProGPU" \
+            "${GITHUB_WORKSPACE}/external/ProGPU/artifacts/progpu-dawn-system-warp/package"
 
       - name: Validate source application Linux runtime assets
         run: python3 eng/tests/test_xlib_source_assets.py --runtime-root external/ProGPU/artifacts/progpu-xlib/package

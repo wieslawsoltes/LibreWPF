@@ -1,3 +1,10 @@
+Explicit Dawn companion staging selects Backend.Dawn from the same whole-qualified
+archive as the other native packages. Preserve both original Windows inventories,
+their receipts/notices and clean producer verifier; publish only after verification.
+Framework package jobs explicitly opt into inclusion using that staged root. Missing
+companions cannot silently produce a smaller downstream package. Ordinary optional
+publication remains unchanged; staging is not desktop or whole-package qualification.
+
 Source Windows runtime staging selects the exact Backend package from the same
 whole-qualified producer as native/SDK and DXC. Determine capability from the
 producer commit, reuse its clean verifier, retain both architecture inventories
