@@ -195,8 +195,15 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             ReleaseDialog = (activation, completed) => ((WpfPortableWindowActivation)activation).Host.ReleaseNativeDialog(completed),
             SetOwner = (activation, owner) => ((WpfPortableWindowActivation)activation).SetOwner(owner),
             GetFrameInsets = activation => ((WpfPortableWindowActivation)activation).Host.GetLogicalNativeFrameInsets(),
+            RequiresSourceFixedCaption = activation =>
+                ((WpfPortableWindowActivation)activation).Host.NativeWindowHandle.Kind == NativeWindowKind.X11,
+            SetCloseButtonEnabled = (activation, enabled) =>
+                ((WpfPortableWindowActivation)activation).SetCloseButtonEnabled(enabled),
             SetWin32TaskbarVisibility = OperatingSystem.IsWindows()
                 ? (activation, visible) => ((WpfPortableWindowActivation)activation).Host.SetWin32TaskbarVisibility(visible)
+                : null,
+            SetX11TaskbarVisibility = OperatingSystem.IsLinux()
+                ? (activation, visible) => ((WpfPortableWindowActivation)activation).Host.SetX11TaskbarVisibility(visible)
                 : null
         };
     }
@@ -597,6 +604,12 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         Host.SetWindowBorder(ResolveWindowBorder(resizeMode, windowStyle, Host.WindowBorder), canMinimize, canMaximize);
     }
 
+    public bool SetCloseButtonEnabled(bool enabled)
+    {
+        ThrowIfDisposed();
+        return Host.SetCloseButtonEnabled(enabled);
+    }
+
     public bool SetWindowRegion(PortableWindowRegion region)
     {
         ThrowIfDisposed();
@@ -966,6 +979,7 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
             Topmost = fallback.Topmost,
             ShowActivated = fallback.ShowActivated,
             Win32ShowInTaskbar = fallback.Win32ShowInTaskbar,
+            X11ShowInTaskbar = fallback.X11ShowInTaskbar,
             TransparentFramebuffer = fallback.TransparentFramebuffer,
             RendererMode = fallback.RendererMode,
             NativeBackendOptions = fallback.NativeBackendOptions,
@@ -1144,6 +1158,7 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         if (state.HasShowInTaskbar)
         {
             options.Win32ShowInTaskbar = state.ShowInTaskbar;
+            options.X11ShowInTaskbar = state.ShowInTaskbar;
         }
 
         if (state.HasShowActivated)
@@ -1171,6 +1186,8 @@ public sealed partial class WpfPortableWindowActivation : IDisposable, INativeWi
         UpdatePortableActivationHints(state);
         if (state.HasShowInTaskbar && OperatingSystem.IsWindows())
             Host.SetWin32TaskbarVisibility(state.ShowInTaskbar);
+        else if (state.HasShowInTaskbar && OperatingSystem.IsLinux())
+            Host.SetX11TaskbarVisibility(state.ShowInTaskbar);
 
         if (state.HasTitle)
         {

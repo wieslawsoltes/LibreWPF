@@ -86,7 +86,7 @@ public sealed class ProcessWpfClipboard : IWpfClipboard
             },
             WpfClipboardPlatform.MacOS => new[]
             {
-                CreateStartInfo("pbcopy", redirectInput: true)
+                WithUtf8Locale(CreateStartInfo("pbcopy", redirectInput: true))
             },
             WpfClipboardPlatform.Linux => new[]
             {
@@ -108,7 +108,7 @@ public sealed class ProcessWpfClipboard : IWpfClipboard
             },
             WpfClipboardPlatform.MacOS => new[]
             {
-                CreateStartInfo("pbpaste", redirectOutput: true)
+                WithUtf8Locale(CreateStartInfo("pbpaste", redirectOutput: true))
             },
             WpfClipboardPlatform.Linux => new[]
             {
@@ -118,6 +118,19 @@ public sealed class ProcessWpfClipboard : IWpfClipboard
             },
             _ => Array.Empty<ProcessStartInfo>()
         };
+    }
+
+    /// <summary>
+    /// pbcopy/pbpaste read and write bytes in the encoding of their locale, not UTF-8. An app
+    /// launched from Finder or the Dock has no LANG, so the tools fall back to MacRoman and every
+    /// non-ASCII character is stored as mojibake ("建置開始" pastes as "Âª∫ÁΩÆÈñãÂßã"). The text is
+    /// exchanged as UTF-8 here, so say so explicitly.
+    /// </summary>
+    private static ProcessStartInfo WithUtf8Locale(ProcessStartInfo startInfo)
+    {
+        startInfo.Environment["LC_ALL"] = "en_US.UTF-8";
+        startInfo.Environment["LANG"] = "en_US.UTF-8";
+        return startInfo;
     }
 
     private static ProcessStartInfo CreateStartInfo(

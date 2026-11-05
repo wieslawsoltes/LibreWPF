@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <ProGpuSourceRoot Condition="'$(ProGpuSourceRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)../../external/ProGPU'))</ProGpuSourceRoot>
     <PackageProjectUrl Condition="'$(PackageProjectUrl)' == ''">https://github.com/wieslawsoltes/wpf</PackageProjectUrl>
     <RepositoryUrl Condition="'$(RepositoryUrl)' == ''">https://github.com/wieslawsoltes/wpf</RepositoryUrl>
     <RepositoryType Condition="'$(RepositoryType)' == ''">git</RepositoryType>

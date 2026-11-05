@@ -20,7 +20,7 @@ DOTNET = shutil.which("dotnet")
 class DesktopPropertyTests(unittest.TestCase):
     def probe(self, wpf="", forms="", framework="net10.0", portable=True,
               markup=True, global_flags=False, transitive=False, frameworks=None,
-              target="Probe"):
+              target="Probe", web=False, portable_in_body=False, prior_hook=False):
         with tempfile.TemporaryDirectory(prefix="librewpf-desktop-properties-") as directory:
             root = Path(directory)
             (root / "App.xaml").write_text(
@@ -34,16 +34,27 @@ class DesktopPropertyTests(unittest.TestCase):
             transitive_item = ('<TransitiveFrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />'
                                if transitive else "")
             project = root / "Consumer.csproj"
+            web_props = '<Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk.Web" />' if web else ""
+            web_targets = '<Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk.Web" />' if web else ""
+            portable_property = f"<ProGpuWpfUsePortableFrameworkReferences>{str(portable).lower()}</ProGpuWpfUsePortableFrameworkReferences>"
+            hook_property = ""
+            if prior_hook:
+                hook = root / "ExistingHook.targets"
+                hook.write_text('<Project><PropertyGroup><ExistingHookObserved>true</ExistingHookObserved></PropertyGroup></Project>', encoding="utf-8")
+                hook_property = f"<BeforeMicrosoftNETSdkTargets>{escape(str(hook))}</BeforeMicrosoftNETSdkTargets>"
             framework_property = (f"<TargetFramework>{framework}</TargetFramework>" if frameworks is None
                                   else f"<TargetFrameworks>{frameworks}</TargetFrameworks>")
             project.write_text(f"""<Project>
   <PropertyGroup>
     <ProGpuWpfUseCurrentRuntimeIdentifier>false</ProGpuWpfUseCurrentRuntimeIdentifier>
-    <ProGpuWpfUsePortableFrameworkReferences>{str(portable).lower()}</ProGpuWpfUsePortableFrameworkReferences>
+    {'' if portable_in_body else portable_property}
+    {hook_property}
   </PropertyGroup>
+  {web_props}
   <Import Project="{escape(str(SDK_ROOT / 'Sdk' / 'Sdk.props'))}" />
   <PropertyGroup>
     {framework_property}
+    {portable_property if portable_in_body else ''}
     <ImplicitUsings>enable</ImplicitUsings>
     <ProGpuWpfUseWpfMarkup>{str(markup).lower()}</ProGpuWpfUseWpfMarkup>
     <ProGpuWpfEnablePortableBootstrap>false</ProGpuWpfEnablePortableBootstrap>
@@ -54,6 +65,7 @@ class DesktopPropertyTests(unittest.TestCase):
     <IntentAtEvaluation Include="Forms" Condition="'$(UseWindowsForms)' == 'true'" />
     {transitive_item}
   </ItemGroup>
+  {web_targets}
   <Import Project="{escape(str(SDK_ROOT / 'Sdk' / 'Sdk.targets'))}" />
   <Target Name="Probe" DependsOnTargets="_CheckForInvalidWindowsDesktopTargetingConfiguration;_CheckForTransitiveWindowsDesktopDependencies">
     <ItemGroup>
@@ -64,7 +76,7 @@ class DesktopPropertyTests(unittest.TestCase):
 </Project>""", encoding="utf-8")
             command = [DOTNET, "msbuild", str(project), "-nologo", "-nodeReuse:false",
                        f"-t:{target}",
-                       "-getProperty:UseWPF,UseWindowsForms,PrepareResourcesDependsOn,ImportWindowsDesktopTargets,TargetFramework,IsCrossTargetingBuild",
+                       "-getProperty:UseWPF,UseWindowsForms,PrepareResourcesDependsOn,ImportWindowsDesktopTargets,TargetFramework,IsCrossTargetingBuild,ExistingHookObserved",
                        "-getItem:FrameworkReference,ApplicationDefinition,Page,Using,IntentAtEvaluation,IntentAtExecution"]
             if global_flags:
                 command.extend([f"-p:UseWPF={wpf}", f"-p:UseWindowsForms={forms}"])
@@ -114,6 +126,41 @@ class DesktopPropertyTests(unittest.TestCase):
         self.assertEqual([], self.identities(data, "ApplicationDefinition"))
         self.assertEqual([], self.identities(data, "Page"))
         self.assertEqual(["Microsoft.NETCore.App"], self.identities(data, "FrameworkReference"))
+
+    def test_web_sdk_composition_keeps_only_portable_desktop_references(self):
+        for wpf, forms in (("false", "true"), ("true", "false"), ("true", "true")):
+            for global_flags in (False, True):
+                with self.subTest(wpf=wpf, forms=forms, global_flags=global_flags):
+                    code, output, data = self.probe(wpf, forms, "net10.0-windows",
+                        web=True, global_flags=global_flags, portable_in_body=True)
+                    self.assertEqual(0, code, output)
+                    self.assertEqual(["Microsoft.NETCore.App", "Microsoft.AspNetCore.App"],
+                                     self.identities(data, "FrameworkReference"))
+                    self.assertEqual(wpf, data["Properties"]["UseWPF"])
+                    self.assertEqual(forms, data["Properties"]["UseWindowsForms"])
+                    self.assertEqual(["App.xaml"], self.identities(data, "ApplicationDefinition"))
+                    self.assertEqual(["View.xaml"], self.identities(data, "Page"))
+
+    def test_web_sdk_project_body_opt_out_keeps_native_desktop_references(self):
+        for wpf, forms, desktop in (("false", "true", "Microsoft.WindowsDesktop.App.WindowsForms"),
+                                    ("true", "false", "Microsoft.WindowsDesktop.App.WPF"),
+                                    ("true", "true", "Microsoft.WindowsDesktop.App")):
+            with self.subTest(wpf=wpf, forms=forms):
+                code, output, data = self.probe(wpf, forms, "net10.0-windows",
+                    web=True, portable=False, portable_in_body=True)
+                self.assertEqual(0, code, output)
+                self.assertEqual(["Microsoft.NETCore.App", desktop, "Microsoft.AspNetCore.App"],
+                                 self.identities(data, "FrameworkReference"))
+                self.assertEqual("true", data["Properties"]["ImportWindowsDesktopTargets"])
+
+    def test_web_sdk_preserves_existing_before_sdk_hook(self):
+        for portable in (False, True):
+            with self.subTest(portable=portable):
+                code, output, data = self.probe("false", "true", "net10.0-windows",
+                    web=True, portable=portable, portable_in_body=True, prior_hook=True)
+                self.assertEqual(0, code, output)
+                self.assertEqual("true", data["Properties"]["ExistingHookObserved"])
+                self.assertEqual("false" if portable else "true", data["Properties"]["ImportWindowsDesktopTargets"])
 
     def test_outer_build_skips_per_framework_runtime_copy_dependencies(self):
         for frameworks in ("net10.0-windows", "net10.0-windows;net11.0-windows"):

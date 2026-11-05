@@ -3573,7 +3573,8 @@ internal static class Program
                 null, // setOwner
                 null, // releaseDialog
                 null, // getFrameInsets
-                null  // setWin32TaskbarVisibility: this recorder owns no native HWND
+                null, // setWin32TaskbarVisibility: this recorder owns no native HWND
+                null  // requiresSourceFixedCaption: this recorder owns no X11 host
             });
 
         AssertEqual(true, GetStaticProperty(activationServiceType, "IsEnabled"), "portable activation enabled");

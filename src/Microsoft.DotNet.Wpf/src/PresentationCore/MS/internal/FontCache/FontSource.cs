@@ -18,7 +18,7 @@ using MS.Internal.Text.TextInterface;
 
 namespace MS.Internal.FontCache
 {
-    internal class FontSourceFactory : IFontSourceFactory
+    internal sealed class FontSourceFactory : IFontSourceFactory
     {
         public FontSourceFactory() { }
         

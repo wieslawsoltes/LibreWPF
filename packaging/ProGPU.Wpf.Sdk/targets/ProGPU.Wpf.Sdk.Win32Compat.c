@@ -1,10 +1,12 @@
 #include <stdint.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #if defined(__APPLE__)
+#include <dlfcn.h>
 #include <pthread.h>
 #include <unistd.h>
 #elif defined(__linux__)
@@ -1188,6 +1190,70 @@ PROGPU_EXPORT int32_t ShowWindow(progpu_intptr window, int32_t command)
 PROGPU_EXPORT int32_t ShowWindowAsync(progpu_intptr window, int32_t command)
 {
     return ShowWindow(window, command);
+}
+
+static uint32_t progpu_double_click_milliseconds(double seconds)
+{
+    double milliseconds = seconds * 1000.0;
+    if (!isfinite(milliseconds) || milliseconds < 0.0)
+    {
+        return 500;
+    }
+    if (milliseconds >= 5000.0)
+    {
+        return 5000; /* GetDoubleClickTime's documented maximum. */
+    }
+    uint32_t result = (uint32_t)milliseconds;
+    double fraction = milliseconds - result;
+    if (fraction > 0.5 || (fraction == 0.5 && (result & 1) != 0))
+    {
+        ++result; /* Match the managed source's nearest-even conversion. */
+    }
+    return result != 0 ? result : 500;
+}
+
+#if defined(__APPLE__)
+static pthread_once_t progpu_double_click_once = PTHREAD_ONCE_INIT;
+static void* progpu_double_click_appkit;
+static void* progpu_double_click_objc;
+static void* progpu_double_click_class;
+static void* progpu_double_click_selector;
+static double (*progpu_double_click_send)(void*, void*);
+
+static void progpu_initialize_double_click_query(void)
+{
+    /* Retain the frameworks for the lifetime of the resolved method pointers.
+       A third-party P/Invoke can precede creation of any native window host. */
+    progpu_double_click_appkit = dlopen("/System/Library/Frameworks/AppKit.framework/AppKit", RTLD_LAZY | RTLD_LOCAL);
+    progpu_double_click_objc = dlopen("/usr/lib/libobjc.A.dylib", RTLD_LAZY | RTLD_LOCAL);
+    if (progpu_double_click_appkit == 0 || progpu_double_click_objc == 0)
+    {
+        return;
+    }
+    void* (*get_class)(const char*) = (void* (*)(const char*))dlsym(progpu_double_click_objc, "objc_getClass");
+    void* (*get_selector)(const char*) = (void* (*)(const char*))dlsym(progpu_double_click_objc, "sel_registerName");
+    progpu_double_click_send = (double (*)(void*, void*))dlsym(progpu_double_click_objc, "objc_msgSend");
+    if (get_class != 0 && get_selector != 0 && progpu_double_click_send != 0)
+    {
+        progpu_double_click_class = get_class("NSEvent");
+        progpu_double_click_selector = get_selector("doubleClickInterval");
+    }
+}
+#endif
+
+PROGPU_EXPORT uint32_t GetDoubleClickTime(void)
+{
+#if defined(__APPLE__)
+    if (pthread_once(&progpu_double_click_once, progpu_initialize_double_click_query) == 0 &&
+        progpu_double_click_class != 0 && progpu_double_click_selector != 0 && progpu_double_click_send != 0)
+    {
+        /* A double return uses objc_msgSend on both x86-64 and ARM64. Read on
+           each call so a changed system preference is not cached indefinitely. */
+        return progpu_double_click_milliseconds(
+            progpu_double_click_send(progpu_double_click_class, progpu_double_click_selector));
+    }
+#endif
+    return 500; /* Existing portable managed-source fallback. */
 }
 
 PROGPU_EXPORT int32_t GetSystemMetrics(int32_t metric)

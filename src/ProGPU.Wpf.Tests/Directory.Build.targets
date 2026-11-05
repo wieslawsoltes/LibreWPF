@@ -1,3 +1,7 @@
 <Project>
+  <PropertyGroup>
+    <LibreWpfUseSourceNativeRuntime>true</LibreWpfUseSourceNativeRuntime>
+  </PropertyGroup>
+  <Import Project="../../eng/LibreWPF.NativeRuntime.targets" />
   <Import Project="../../eng/LibreWPF.XlibRuntime.targets" />
 </Project>

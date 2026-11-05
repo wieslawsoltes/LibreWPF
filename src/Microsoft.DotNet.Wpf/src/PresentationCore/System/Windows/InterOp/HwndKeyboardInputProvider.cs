@@ -543,6 +543,28 @@ namespace System.Windows.Interop
             char charcode = (char)wParam;
             bool isDeadChar = ((msg == WindowMessage.WM_DEADCHAR) || (msg == WindowMessage.WM_SYSDEADCHAR));
             bool isSystemChar = ((msg == WindowMessage.WM_SYSCHAR) || (msg == WindowMessage.WM_SYSDEADCHAR));
+            bool isControlChar = IsControlCharacter(charcode);
+
+            RawTextInputReport report = new RawTextInputReport(_source,
+                                                               InputMode.Foreground,
+                                                               _msgTime,
+                                                               isDeadChar,
+                                                               isSystemChar,
+                                                               isControlChar,
+                                                               charcode);
+
+            handled = _site.ReportInput(report);
+        }
+
+        internal static bool IsControlCharacter(char charcode)
+        {
+            if (InputManager.Current.UsesPortableInput)
+            {
+                ModifierKeys modifiers = Keyboard.Modifiers;
+                return (modifiers & ModifierKeys.Control) != 0 &&
+                    (modifiers & ModifierKeys.Alt) == 0 && Char.IsControl(charcode);
+            }
+
             bool isControlChar = false;
 
             // If the control is pressed but Alt is not, the char is control char.
@@ -560,15 +582,7 @@ namespace System.Windows.Interop
                 System.Diagnostics.Debug.WriteLine("HwndMouseInputProvider: GetKeyState failed!");
             }
 
-            RawTextInputReport report = new RawTextInputReport(_source,
-                                                               InputMode.Foreground,
-                                                               _msgTime,
-                                                               isDeadChar,
-                                                               isSystemChar,
-                                                               isControlChar,
-                                                               charcode);
-
-            handled = _site.ReportInput(report);
+            return isControlChar;
         }
 
         internal static int GetVirtualKey(IntPtr wParam, IntPtr lParam)
@@ -658,10 +672,17 @@ namespace System.Windows.Interop
         }
 
         ///<summary>
-        ///     Returns the set of modifier keys currently pressed as determined by calling to Win32
+        ///     Returns modifiers from the selected input device, preserving native Win32 queries.
         ///</summary>
         internal static ModifierKeys GetSystemModifierKeys()
         {
+            // Portable input owns physical keys and scoped event-time modifiers.
+            // Its source identities must not query the Win32 keyboard state.
+            if (InputManager.Current.UsesPortableInput)
+            {
+                return Keyboard.Modifiers;
+            }
+
             ModifierKeys modifierKeys = ModifierKeys.None;
 
             short keyState = UnsafeNativeMethods.GetKeyState(NativeMethods.VK_SHIFT);

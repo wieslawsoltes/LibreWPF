@@ -6,7 +6,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.ExceptionServices;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Media;
 using ProGpuSfntFontFace = ProGPU.Text.SfntFontFace;
 using ProGpuSfntGlyphBounds = ProGPU.Text.SfntGlyphBounds;
@@ -368,7 +370,7 @@ namespace MS.Internal.Text.TextInterface
                 {
                     if (_systemFontCollection == null)
                     {
-                        _systemFontCollection = FontCollection.FromUris(GetSystemFontUris(), _fontSourceFactory);
+                        _systemFontCollection = FontCollection.FromSystemUris(GetSystemFontUris(), _fontSourceFactory);
                     }
                 }
             }
@@ -411,12 +413,25 @@ namespace MS.Internal.Text.TextInterface
                 "LibreWPF",
                 "Fonts",
                 "LibreWPF.FluentSymbols.ttf");
+
+            return EnumerateSystemFontUris(bundledSymbolFont, GetSystemFontDirectories());
+        }
+
+        internal static IEnumerable<Uri> EnumerateSystemFontUris(
+            string bundledSymbolFont, IEnumerable<string> directories)
+        {
+            // Discovery roots may overlap, including the bundled source. Keep the
+            // first exact source URI before opening/parsing files, without merging
+            // distinct files, TTC faces or explicitly supplied custom collections.
+            var sources = new HashSet<string>(StringComparer.Ordinal);
             if (File.Exists(bundledSymbolFont))
             {
-                yield return new Uri(bundledSymbolFont, UriKind.Absolute);
+                var uri = new Uri(bundledSymbolFont, UriKind.Absolute);
+                sources.Add(uri.AbsoluteUri);
+                yield return uri;
             }
 
-            foreach (string directory in GetSystemFontDirectories())
+            foreach (string directory in directories)
             {
                 if (!Directory.Exists(directory))
                 {
@@ -437,7 +452,11 @@ namespace MS.Internal.Text.TextInterface
                 {
                     if (PortableFontData.IsSupportedFontPath(file))
                     {
-                        yield return new Uri(file, UriKind.Absolute);
+                        var uri = new Uri(file, UriKind.Absolute);
+                        if (sources.Add(uri.AbsoluteUri))
+                        {
+                            yield return uri;
+                        }
                     }
                 }
             }
@@ -448,7 +467,6 @@ namespace MS.Internal.Text.TextInterface
             if (OperatingSystem.IsMacOS())
             {
                 yield return "/System/Library/Fonts";
-                yield return "/System/Library/Fonts/Supplemental";
                 yield return "/Library/Fonts";
                 yield return Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -513,6 +531,67 @@ namespace MS.Internal.Text.TextInterface
                 AddFontsFromSource(fontSource, uri, fonts);
             }
 
+            return FromFontData(fonts);
+        }
+
+        internal static FontCollection FromSystemUris(IEnumerable<Uri> uris, IFontSourceFactory fontSourceFactory)
+        {
+            // Only this sealed, owned factory guarantees file sources without
+            // custom callbacks. All custom factories and explicit collections
+            // retain their original sequential opening and callback behavior.
+            if (fontSourceFactory is not MS.Internal.FontCache.FontSourceFactory)
+            {
+                return FromUris(uris, fontSourceFactory);
+            }
+
+            var sources = new List<(Uri Uri, IFontSource Source, string Path)>();
+            foreach (Uri uri in uris)
+            {
+                IFontSource source = fontSourceFactory.Create(uri.AbsoluteUri);
+                sources.Add((uri, source, source.IsFile ? source.Uri.LocalPath : null));
+            }
+
+            var fonts = new List<PortableFontData>();
+            if (sources.Count < 32 || Environment.ProcessorCount == 1 || sources.Exists(source => source.Path == null))
+            {
+                foreach (var source in sources)
+                {
+                    AddFontsFromSource(source.Source, source.Uri, fonts);
+                }
+                return FromFontData(fonts);
+            }
+
+            var faces = new IReadOnlyList<PortableFontData>[sources.Count];
+            var failures = new ExceptionDispatchInfo[sources.Count];
+            void ReadSource(int index)
+            {
+                var source = sources[index];
+                try
+                {
+                    faces[index] = PortableFontData.LoadFileCatalogFaces(source.Uri, source.Source, source.Path);
+                }
+                catch (Exception ex) when (ex is FileFormatException || ex is IOException || ex is UnauthorizedAccessException || ex is NotSupportedException)
+                {
+                    // Preserve the original per-file catalog rejection policy.
+                }
+                catch (Exception ex)
+                {
+                    failures[index] = ExceptionDispatchInfo.Capture(ex);
+                }
+            }
+
+            Parallel.For(0, sources.Count,
+                new ParallelOptions { MaxDegreeOfParallelism = Math.Min(4, Environment.ProcessorCount) },
+                ReadSource);
+
+            // Completion order never selects a family or face. Publish original
+            // source/TTC order, and rethrow the first original fatal error without
+            // replacing its type with Parallel.For's AggregateException wrapper.
+            for (int index = 0; index < sources.Count; index++)
+            {
+                failures[index]?.Throw();
+                if (faces[index] != null) fonts.AddRange(faces[index]);
+            }
             return FromFontData(fonts);
         }
 
@@ -1049,7 +1128,7 @@ namespace MS.Internal.Text.TextInterface
         {
             if ((fontSource != null && fontSource.IsFile) || (fontSource == null && uri.IsFile))
             {
-                return LoadFileCatalogFaces(uri, fontSource);
+                return LoadFileCatalogFaces(uri, fontSource, fontSource != null ? fontSource.Uri.LocalPath : uri.LocalPath);
             }
 
             byte[] data = ReadFontBytes(uri, fontSource);
@@ -1072,9 +1151,8 @@ namespace MS.Internal.Text.TextInterface
             return faces;
         }
 
-        private static IReadOnlyList<PortableFontData> LoadFileCatalogFaces(Uri uri, IFontSource fontSource)
+        internal static IReadOnlyList<PortableFontData> LoadFileCatalogFaces(Uri uri, IFontSource fontSource, string path)
         {
-            string path = fontSource != null ? fontSource.Uri.LocalPath : uri.LocalPath;
             using var stream = new FileStream(
                 path,
                 FileMode.Open,

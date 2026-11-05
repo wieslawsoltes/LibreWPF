@@ -13,6 +13,18 @@ created by an older SDK before rebuilding a Windows target. Ordinary portable
 macOS/Linux apps still receive their native compatibility library, including apps
 whose managed target framework is `net10.0-windows`.
 
+The portable `user32.dll` shim exports `GetDoubleClickTime` for third-party
+P/Invoke callers. On macOS it reads the current AppKit `NSEvent.doubleClickInterval`
+even before a window host exists, converts seconds to integer milliseconds with
+nearest-even rounding, and applies the Win32 maximum of 5,000 milliseconds. Linux
+and unavailable/invalid native queries use the existing portable 500 ms default.
+Windows targets continue using the operating system's `user32.dll`. This export
+resolves the initialization failure reported in #298; complete DevExpress
+rendering and interaction remain separate application qualification.
+
+Contracts: [GetDoubleClickTime](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdoubleclicktime)
+and [NSEvent.doubleClickInterval](https://developer.apple.com/documentation/appkit/nsevent/doubleclickinterval).
+
 For locally rebuilt development feeds, the SDK clears known WPF and ProGPU runtime assemblies from the app output before recopying package assets. This prevents an incremental app rebuild from launching stale bridge/compositor DLLs after a local package refresh while preserving normal incremental copy behavior for stable package versions. Set `ProGpuWpfClearMutablePackageOutputs=false` to disable this development safeguard.
 
 The SDK owns the package dependency closure. `LibreWPF.Transport` supplies the real managed WPF assembly identities and runtime payload, while `LibreWPF.ProGPU` is the adapter/runtime bridge package and does not publish dependencies on the ProGPU shim `PresentationCore` package.
@@ -61,6 +73,16 @@ markup opt-out. Setting `ProGpuWpfUsePortableFrameworkReferences=false` retains
 the native WindowsDesktop SDK imports and Windows-targeting validation; it is
 not a portable runtime configuration. Public desktop flags do not qualify
 trimming or NativeAOT, and their existing SDK restrictions remain in force.
+
+The same policy applies when LibreWPF is a secondary SDK, including
+`<Project Sdk="Microsoft.NET.Sdk.Web">` with a child
+`<Sdk Name="LibreWPF.Sdk" Version="0.1.0-preview.70" />`.
+`UseWindowsForms=true` selects portable Forms while the Web SDK retains its
+ASP.NET Core framework reference. The portable desktop policy runs before the
+first .NET SDK targets import, after project properties have been read; existing
+`BeforeMicrosoftNETSdkTargets` hooks and the explicit native opt-out are retained.
+Upgrade and restore the SDK to apply this fix; suppressing `LWFDRAW001` would
+leave incompatible Drawing assemblies selected.
 
 Windows, macOS, and Linux are supported runtime targets. A Windows RID restores the same platform-independent `LibreWPF.Transport` payload as the other hosts; no `runtime.win-*` LibreWPF companion package is required or published.
 

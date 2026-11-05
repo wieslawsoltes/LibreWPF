@@ -1,0 +1,35 @@
+<Project>
+  <!-- Source executables opt in at their boundary after exact whole-producer
+       staging. Package consumers retain NuGet's native asset resolution. -->
+  <PropertyGroup>
+    <_LibreWpfSelectNativeRuntime Condition="'$(_LibreWpfNativeRuntimeImported)' != 'true' And '$(LibreWpfUseSourceNativeRuntime)' == 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe' Or '$(IsTestProject)' == 'true')">true</_LibreWpfSelectNativeRuntime>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(_LibreWpfSelectNativeRuntime)' == 'true'">
+    <_LibreWpfNativeProGpuRoot Condition="'$(ProGpuSourceRoot)' != ''">$([MSBuild]::NormalizeDirectory('$(ProGpuSourceRoot)'))</_LibreWpfNativeProGpuRoot>
+    <_LibreWpfNativeRuntimeRoot Condition="'$(ProGpuNativeRuntimeRoot)' != ''">$([MSBuild]::NormalizeDirectory('$(ProGpuNativeRuntimeRoot)'))</_LibreWpfNativeRuntimeRoot>
+    <_LibreWpfNativeRuntimeRoot Condition="'$(_LibreWpfNativeRuntimeRoot)' == '' And '$(_LibreWpfNativeProGpuRoot)' != ''">$(_LibreWpfNativeProGpuRoot)artifacts/progpu-native/package/</_LibreWpfNativeRuntimeRoot>
+  </PropertyGroup>
+  <!-- New producers retain a self-contained raw native artifact, but the
+       default Windows dependency is selected once by their Backend target. -->
+  <ItemGroup Condition="'$(_LibreWpfSelectNativeRuntime)' == 'true' And '$(_LibreWpfNativeRuntimeRoot)' != '' And Exists('$(_LibreWpfNativeProGpuRoot)src/ProGPU.Backend/buildTransitive/ProGPU.Backend.Windows.targets')">
+    <_LibreWpfBackendWindowsRid Include="win-x64;win-arm64" />
+    <_LibreWpfBackendWindowsAsset Include="@(_LibreWpfBackendWindowsRid->'$(_LibreWpfNativeRuntimeRoot)runtimes/%(Identity)/native/wgpu_native.dll');@(_LibreWpfBackendWindowsRid->'$(_LibreWpfNativeRuntimeRoot)runtimes/%(Identity)/native/wgpu-native-build.json');@(_LibreWpfBackendWindowsRid->'$(_LibreWpfNativeRuntimeRoot)runtimes/%(Identity)/native/wgpu-native-windows.json');@(_LibreWpfBackendWindowsRid->'$(_LibreWpfNativeRuntimeRoot)runtimes/%(Identity)/native/LICENSE.MIT');@(_LibreWpfBackendWindowsRid->'$(_LibreWpfNativeRuntimeRoot)runtimes/%(Identity)/native/LICENSE.APACHE');@(_LibreWpfBackendWindowsRid->'$(_LibreWpfNativeRuntimeRoot)runtimes/%(Identity)/native/wgpu-LICENSE.MIT');@(_LibreWpfBackendWindowsRid->'$(_LibreWpfNativeRuntimeRoot)runtimes/%(Identity)/native/wgpu-LICENSE.APACHE');@(_LibreWpfBackendWindowsRid->'$(_LibreWpfNativeRuntimeRoot)runtimes/%(Identity)/native/webgpu-headers-LICENSE')" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(_LibreWpfSelectNativeRuntime)' == 'true' And '$(_LibreWpfNativeRuntimeRoot)' != ''">
+    <_LibreWpfNativePayload Include="$(_LibreWpfNativeRuntimeRoot)runtimes/*/native/**/*"
+                           Exclude="@(_LibreWpfBackendWindowsAsset);$(_LibreWpfNativeRuntimeRoot)runtimes/*/native/sdk/**/*"
+                           Condition="'$(RuntimeIdentifier)' == ''" />
+    <_LibreWpfNativePayload Include="$(_LibreWpfNativeRuntimeRoot)runtimes/$(RuntimeIdentifier)/native/**/*"
+                           Exclude="@(_LibreWpfBackendWindowsAsset);$(_LibreWpfNativeRuntimeRoot)runtimes/$(RuntimeIdentifier)/native/sdk/**/*"
+                           Condition="'$(RuntimeIdentifier)' != ''" />
+    <Content Include="@(_LibreWpfNativePayload)" CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true">
+      <Link Condition="'$(RuntimeIdentifier)' == ''">$([MSBuild]::MakeRelative('$(_LibreWpfNativeRuntimeRoot)', '%(FullPath)'))</Link>
+      <!-- Keep RID-specific libraries beside their NuGet native dependencies. -->
+      <Link Condition="'$(RuntimeIdentifier)' != ''">$([MSBuild]::MakeRelative('$(_LibreWpfNativeRuntimeRoot)runtimes/$(RuntimeIdentifier)/native', '%(FullPath)'))</Link>
+    </Content>
+  </ItemGroup>
+  <PropertyGroup>
+    <_LibreWpfNativeRuntimeImported Condition="'$(_LibreWpfSelectNativeRuntime)' == 'true'">true</_LibreWpfNativeRuntimeImported>
+  </PropertyGroup>
+</Project>

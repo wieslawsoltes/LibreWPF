@@ -565,12 +565,28 @@ public sealed class PortableWindowActivationCallbacks
     /// </summary>
     public Func<object, PortableWindowFrameInsets?>? GetFrameInsets { get; init; }
 
+    /// <summary>
+    /// Reports whether this live host needs a source-owned caption for ordinary
+    /// NoResize windows. The source still owns style/custom-chrome selection.
+    /// This is decoration policy, not a native frame measurement or input gate.
+    /// </summary>
+    public Func<object, bool>? RequiresSourceFixedCaption { get; init; }
+
+    /// <summary>Changes enabled state of an existing close control, independently
+    /// of its visibility or programmatic closing. False means unsupported or
+    /// not yet applied; an advisory native hint is not desktop qualification.</summary>
+    public Func<object, bool, bool>? SetCloseButtonEnabled { get; init; }
+
     public Action<object, double, double>? SetPosition { get; }
 
     public Action<object, bool>? SetTopmost { get; }
 
     /// <summary>Optional source Win32 taskbar policy; other native providers retain their separate admission.</summary>
     public Action<object, bool>? SetWin32TaskbarVisibility { get; init; }
+
+    /// <summary>Optional source X11 taskbar hint. True means the mapped-window
+    /// request was sent, not that the window manager applied it.</summary>
+    public Func<object, bool, bool>? SetX11TaskbarVisibility { get; init; }
 
     public Action<object, object, object>? SetWindowBorder { get; }
 

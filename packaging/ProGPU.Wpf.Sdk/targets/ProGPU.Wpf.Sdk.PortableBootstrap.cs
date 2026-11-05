@@ -125,7 +125,12 @@ internal static class ProGpuWpfSdkPortableBootstrap
                     "Explicit native modal startup requires the source-built typed WPF activation service.");
         }
         else
-            global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation();
+        {
+            bool registered = global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationFrameworkActivation();
+            if (!registered)
+                throw new global::System.InvalidOperationException(
+                    "Portable WPF startup requires the source-built typed WPF activation service.");
+        }
 #endif
         global::System.Windows.Media.ProGPU.WpfPortableWindowActivation.TryRegisterPresentationCoreClipboardService();
     }

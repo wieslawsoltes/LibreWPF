@@ -5,7 +5,8 @@ param(
     [ValidateSet("vs", "dotnet")]
     [string] $MSBuildEngine = "vs",
     [switch] $Rebuild,
-    [switch] $NativeToolsOnMachine
+    [switch] $NativeToolsOnMachine,
+    [switch] $ValidateDesktopTransform
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,6 +42,58 @@ function Test-X64DotNetHost([string] $path) {
     }
     finally {
         $stream.Dispose()
+    }
+}
+
+function Get-WpfSourceTestCoreBuild {
+    $sourceProject = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/src/PresentationCore/PresentationCore.csproj"
+    # SDK project references remove RuntimeIdentifier/SelfContained for this
+    # RID-agnostic library. The test graph therefore builds a distinct x64
+    # output from the earlier explicit win-x64 package-production invocation.
+    $evaluation = & $env:DOTNET_HOST_PATH msbuild $sourceProject -nologo -target:GetTargetFrameworks `
+        -getItem:_ThisProjectBuildMetadata -getProperty:TargetPath,PlatformTarget,RuntimeIdentifier,TargetFramework `
+        "-p:Configuration=$Configuration" -p:Platform=x64
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to evaluate the x64 source test project reference.' }
+    $result = $evaluation -join [Environment]::NewLine | ConvertFrom-Json
+    $metadata = @($result.Items._ThisProjectBuildMetadata)
+    if ($metadata.Count -ne 1 -or $metadata[0].IsRidAgnostic -ne 'true' -or
+        $result.Properties.PlatformTarget -ne 'x64' -or $result.Properties.RuntimeIdentifier -ne '' -or
+        $result.Properties.TargetFramework -ne 'net10.0' -or
+        [string]::IsNullOrWhiteSpace($result.Properties.TargetPath)) {
+        throw 'The source test reference no longer has the required RID-agnostic x64 build contract.'
+    }
+    return $result
+}
+
+function Assert-WpfSourceTestClosure([string[]] $ExpectedInputs, [string[]] $RequiredX64Inputs,
+    [string] $TestDirectory, [string] $Evidence) {
+    $files = @()
+    foreach ($expected in $ExpectedInputs) {
+        $actual = Join-Path $TestDirectory ([IO.Path]::GetFileName($expected))
+        $entry = [ordered]@{ expected = $expected; actual = $actual; expectedSha256 = $null; actualSha256 = $null
+            expectedX64 = $null; actualX64 = $null; mismatches = @() }
+        try {
+            if (Test-Path $expected -PathType Leaf) { $entry.expectedSha256 = (Get-FileHash $expected -Algorithm SHA256).Hash }
+            else { $entry.mismatches += 'Expected source file is missing.' }
+            if (Test-Path $actual -PathType Leaf) { $entry.actualSha256 = (Get-FileHash $actual -Algorithm SHA256).Hash }
+            else { $entry.mismatches += 'Test closure file is missing.' }
+            if ($null -ne $entry.expectedSha256 -and $null -ne $entry.actualSha256 -and $entry.expectedSha256 -ne $entry.actualSha256) {
+                $entry.mismatches += 'Source and test closure hashes differ.'
+            }
+            if ($expected -in $RequiredX64Inputs) {
+                $entry.expectedX64 = Test-X64DotNetHost $expected
+                $entry.actualX64 = Test-X64DotNetHost $actual
+                if (!$entry.expectedX64 -or !$entry.actualX64) { $entry.mismatches += 'A required native image is not x64.' }
+            }
+        }
+        catch { $entry.mismatches += $_.Exception.Message }
+        $files += $entry
+    }
+    $failed = @($files | Where-Object { $_.mismatches.Count -ne 0 })
+    @{ passed = $failed.Count -eq 0; files = $files } | ConvertTo-Json -Depth 6 |
+        Set-Content (Join-Path $Evidence 'x64-closure.json')
+    if ($failed.Count -ne 0) {
+        throw "The source test closure does not match its explicit x64 build: $($failed.actual -join ', ')"
     }
 }
 
@@ -177,7 +230,8 @@ finally {
     Remove-Item -Path $restoreRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [string] $runtimeIdentifier, [string] $ijwHostSourcePath = "") {
+function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [string] $runtimeIdentifier,
+        [string] $ijwHostSourcePath = "", [switch] $SerializeBuild) {
     # Compiler/SDK changes require real compilation, not reuse of assemblies
     # previously produced with missing analyzers. Use Arcade's scoped Rebuild
     # action without deleting unrelated checkout outputs or running tests.
@@ -204,6 +258,15 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         $nativeToolsArgument = @("-nativeToolsOnMachine")
     }
 
+    $schedulingArguments = @()
+    if ($SerializeBuild) {
+        # The test graph reaches the same C++/CLI output through direct and
+        # transitive references with different global properties. Serialize
+        # these writers; concurrent links can replace/delete the same DLL.
+        # Arcade supplies /m first, so this later limit owns the scoped build.
+        $schedulingArguments = @('/m:1', '/p:BuildInParallel=false')
+    }
+
     # Arcade exits its process; keep each build isolated and preserve the
     # current host's execution policy rather than requesting an override.
     # The repository's inherited Framework-hosted compiler cannot load the
@@ -222,6 +285,7 @@ function Invoke-WpfProjectBuild([string] $projectPath, [string] $platform, [stri
         "/p:PerlCommand=$perlCommand" `
         $runtimeIdentifierArgument `
         $ijwHostArgument `
+        $schedulingArguments `
         /p:BuildWithNetFrameworkHostedCompiler=false `
         /p:RunNetFrameworkApiCompat=false `
         /p:RunRefApiCompat=false
@@ -280,6 +344,84 @@ foreach ($entry in $runtimePlatforms.GetEnumerator()) {
     $directWriteForwarderPdb = [System.IO.Path]::ChangeExtension($directWriteForwarder, ".pdb")
     if (Test-Path $directWriteForwarderPdb) {
         Copy-Item $directWriteForwarderPdb (Join-Path $runtimeOutput "DirectWriteForwarder.pdb") -Force
+    }
+}
+
+if ($ValidateDesktopTransform) {
+    # The preceding RID loop ends with ARM64. Select and verify an independent
+    # x64 source-test closure explicitly; never run whichever output was last.
+    $testProject = Join-Path $repoRoot "src/Microsoft.DotNet.Wpf/tests/UnitTests/PresentationCore.Tests/PresentationCore.Tests.csproj"
+    $testDirectory = Join-Path $repoRoot "artifacts/bin/PresentationCore.Tests/x64/$Configuration/net10.0-windows/win-x64"
+    $testAssembly = Join-Path $testDirectory "PresentationCore.Tests.dll"
+    $x64IjwHost = Join-Path $packagesDirectory "microsoft.netcore.app.host.win-x64/$netCoreAppVersion/runtimes/win-x64/native/ijwhost.dll"
+    if ($Rebuild -or !(Test-Path $testAssembly -PathType Leaf)) {
+        Invoke-WpfProjectBuild $testProject "x64" "win-x64" $x64IjwHost -SerializeBuild
+    }
+    if (!(Test-Path $testAssembly -PathType Leaf)) {
+        throw "The x64 source test assembly is missing: $testAssembly"
+    }
+    $evidence = Join-Path $repoRoot "artifacts/desktop-transform-source"
+    New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+    $sourceCoreBuild = Get-WpfSourceTestCoreBuild
+    $sourceCoreBuild | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $evidence "source-core-build.json")
+    $expectedCore = $sourceCoreBuild.Properties.TargetPath
+    $expectedForwarder = Join-Path $repoRoot "artifacts/bin/DirectWriteForwarder/x64/$Configuration/net10.0/DirectWriteForwarder.dll"
+    # C++/CLI's native IJW host is a packaging asset, not a transitive managed
+    # project reference. Stage this exact restored x64 input into our test output.
+    Copy-Item $x64IjwHost (Join-Path $testDirectory "ijwhost.dll") -Force
+    $propertyOutput = & $env:DOTNET_HOST_PATH msbuild $testProject -nologo `
+        -getProperty:ArtifactsPackagingDir,GitHubTransportPackageName,WpfRuntimeIdentifier `
+        "-p:Configuration=$Configuration" -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+    if ($LASTEXITCODE -ne 0) { throw "Unable to read the actual x64 source native payload location." }
+    $properties = ($propertyOutput -join [Environment]::NewLine | ConvertFrom-Json).Properties
+    if ($properties.WpfRuntimeIdentifier -ne 'win-x64') { throw 'The source test native payload selected a different RID.' }
+    $nativeDirectory = Join-Path $properties.ArtifactsPackagingDir "$($properties.GitHubTransportPackageName)/runtimes/win-x64/native"
+    $expectedInputs = @($expectedCore, $expectedForwarder, $x64IjwHost)
+    $requiredX64Inputs = @($expectedForwarder, $x64IjwHost)
+    $vcRuntimeName = if ($Configuration -eq 'Debug') { 'vcruntime140d.dll' } else { 'vcruntime140_cor3.dll' }
+    foreach ($nativeName in @('D3DCompiler_47_cor3.dll', 'PresentationNative_cor3.dll',
+            $vcRuntimeName, 'PenImc_cor3.dll', 'wpfgfx_cor3.dll')) {
+        $native = Join-Path $nativeDirectory $nativeName
+        $expectedInputs += $native
+        $requiredX64Inputs += $native
+    }
+    Assert-WpfSourceTestClosure $expectedInputs $requiredX64Inputs $testDirectory $evidence
+    $previousBackend = $env:LIBREWPF_TEST_MEDIA_BACKEND
+    $previousExpectedCore = $env:LIBREWPF_DESKTOP_QUERY_EXPECTED_CORE
+    try {
+        $env:LIBREWPF_TEST_MEDIA_BACKEND = "WindowsMil"
+        $env:LIBREWPF_DESKTOP_QUERY_EXPECTED_CORE = Join-Path $testDirectory "PresentationCore.dll"
+        $start = [Diagnostics.ProcessStartInfo]::new($env:DOTNET_HOST_PATH)
+        $start.UseShellExecute = $false
+        $start.RedirectStandardOutput = $true
+        $start.RedirectStandardError = $true
+        foreach ($argument in @($testAssembly, '--filter-class', 'System.Windows.NativeDesktopTransformQueryTests',
+                '--minimum-expected-tests', '1', '--fail-skips', 'on', '--timeout', '60s', '--no-progress',
+                '--results-directory', $evidence, '--report-trx')) {
+            $start.ArgumentList.Add($argument)
+        }
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        $process = [Diagnostics.Process]::Start($start)
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        $timedOut = !$process.WaitForExit(60000)
+        if ($timedOut) {
+            $process.Kill($true)
+            if (!$process.WaitForExit(5000)) { throw 'The owned native query process did not retire after its deadline.' }
+        }
+        $stdout.GetAwaiter().GetResult() | Set-Content (Join-Path $evidence "native-query.log")
+        $stderr.GetAwaiter().GetResult() | Set-Content (Join-Path $evidence "native-query.stderr.log")
+        $testExit = $process.ExitCode
+        [ordered]@{ exitCode = $testExit; timedOut = $timedOut; elapsedSeconds = $clock.Elapsed.TotalSeconds;
+            deadlineSeconds = 60; inputActions = 0; backend = 'WindowsMil'; host = $env:DOTNET_HOST_PATH;
+            assembly = $testAssembly } | ConvertTo-Json | Set-Content (Join-Path $evidence "native-query-receipt.json")
+        $process.Dispose()
+        Get-Content (Join-Path $evidence "native-query.log")
+        if ($timedOut -or $testExit -ne 0) { throw "The actual native HWND desktop query control failed ($testExit; timeout=$timedOut)." }
+    }
+    finally {
+        $env:LIBREWPF_TEST_MEDIA_BACKEND = $previousBackend
+        $env:LIBREWPF_DESKTOP_QUERY_EXPECTED_CORE = $previousExpectedCore
     }
 }
 

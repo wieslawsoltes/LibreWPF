@@ -708,7 +708,9 @@ def run_one(args, module, shared, app, output, portable, windows_desktop=None):
                               args.hosted_windows_shell_escape and not portable,
                               getattr(args, "hosted_windows_retirement_readiness", False) is True,
                               getattr(args, "hosted_windows_start_activation", False) is True and not portable)
-            if args.platform == "macos":
+            if args.platform in ("macos", "x11"):
+                # Both protocol adapters start with a connection-setup deadline.
+                # Handoff the original absolute process budget, never now + 60.
                 desktop.deadline = session.deadline
             scenario(session)
             result.update(completed=True, exitCode=process.returncode, physicalActions=session.actions)

@@ -6,6 +6,15 @@
              Link="ShowcaseClipboardImage.cs" />
   </ItemGroup>
 
+  <!-- These exercise PortableTextInterface.cs, which PresentationCore builds
+       only off Windows. Windows owns the separate DirectWriteForwarder types;
+       the actual HWND desktop-transform control remains in this test assembly. -->
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
+    <Compile Remove="MS\Internal\Text\TextInterface\PortableFontDataTests.cs" />
+    <Compile Remove="MS\Internal\Text\TextInterface\PortableFontCollectionTests.cs" />
+    <Compile Remove="MS\Internal\Text\TextInterface\PortableSystemFontDiscoveryTests.cs" />
+  </ItemGroup>
+
   <PropertyGroup>
     <AssemblyName>PresentationCore.Tests</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

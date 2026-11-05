@@ -191,6 +191,7 @@ public sealed partial class WpfPortableWindowActivationTests
         Assert.NotNull(service.Callbacks.SetPosition);
         Assert.NotNull(service.Callbacks.SetTopmost);
         Assert.NotNull(service.Callbacks.SetWindowBorder);
+        Assert.NotNull(service.Callbacks.SetCloseButtonEnabled);
         Assert.NotNull(service.Callbacks.GetFrameInsets);
         Assert.NotNull(service.Callbacks.Close);
         Assert.NotNull(service.Callbacks.Run);
@@ -242,16 +243,17 @@ public sealed partial class WpfPortableWindowActivationTests
         service.Callbacks!.SetOwner!(childActivation!, owner);
         Assert.Same(ownerHost, Assert.Single(owners));
         accepted = false;
+        Assert.Throws<PlatformNotSupportedException>(() => service.Callbacks.SetOwner(childActivation!, owner));
         Assert.Throws<PlatformNotSupportedException>(() => service.Callbacks.SetOwner(childActivation!, null));
         accepted = true;
         service.Callbacks.SetOwner(childActivation!, null);
-        Assert.Equal(3, owners.Count); // Rejected clearing did not erase the retained relation.
-        Assert.Null(owners[2]);
+        Assert.Equal(4, owners.Count); // Rejected setting/clearing did not erase the retained relation.
+        Assert.Null(owners[3]);
         Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, child));
         Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, new object()));
         ownerActivation!.Dispose();
         Assert.Throws<InvalidOperationException>(() => service.Callbacks.SetOwner(childActivation!, owner));
-        Assert.Equal(3, owners.Count);
+        Assert.Equal(4, owners.Count);
     }
 
     [Fact]
@@ -1405,8 +1407,12 @@ public sealed partial class WpfPortableWindowActivationTests
     {
         var source = new FakeWindow { HasShowInTaskbar = true, ShowInTaskbar = visible };
         var options = WpfPortableWindowActivation.CreateHostOptions(source,
-            new ProGpuWpfWindowOptions { Win32ShowInTaskbar = !visible });
+            new ProGpuWpfWindowOptions { Win32ShowInTaskbar = !visible, X11ShowInTaskbar = !visible });
         Assert.Equal(visible, options.Win32ShowInTaskbar);
+        Assert.Equal(visible, options.X11ShowInTaskbar);
+        Assert.Equal(false, WpfPortableWindowActivation.CreateHostOptions(new FakeWindow(),
+            new ProGpuWpfWindowOptions { X11ShowInTaskbar = false }).X11ShowInTaskbar);
+        Assert.Null(WpfPortableWindowActivation.CreateHostOptions(new FakeWindow()).X11ShowInTaskbar);
         Assert.Equal(false, WpfPortableWindowActivation.CreateHostOptions(new FakeWindow(),
             new ProGpuWpfWindowOptions { Win32ShowInTaskbar = false }).Win32ShowInTaskbar);
         Assert.Null(WpfPortableWindowActivation.CreateHostOptions(new FakeWindow()).Win32ShowInTaskbar);

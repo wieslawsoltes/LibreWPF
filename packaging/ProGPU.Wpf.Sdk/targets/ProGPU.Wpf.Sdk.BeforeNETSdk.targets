@@ -1,0 +1,8 @@
+<Project>
+  <!-- Use the final project/global portable policy before the first .NET SDK
+       targets import, including when an outer Web SDK imports it first.
+       Keep public desktop intent and the native opt-out unchanged. -->
+  <PropertyGroup Condition="'$(ProGpuWpfUsePortableFrameworkReferences)' == 'true'">
+    <ImportWindowsDesktopTargets>false</ImportWindowsDesktopTargets>
+  </PropertyGroup>
+</Project>

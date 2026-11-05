@@ -1,14 +1,22 @@
 <Project>
   <!-- Ordinary source harnesses do not import ProGPU's Directory.Build.targets.
-       Select its staged runtime only at this application's/test's boundary. -->
+       Select its staged Linux/Windows runtime only at this application's/test's boundary. -->
   <PropertyGroup>
     <ProGpuSourceRoot Condition="'$(ProGpuSourceRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)../external/ProGPU'))</ProGpuSourceRoot>
     <_LibreWpfXlibProGpuRoot>$([MSBuild]::NormalizeDirectory('$(ProGpuSourceRoot)'))</_LibreWpfXlibProGpuRoot>
     <ProGpuXlibSourceRuntimeRoot Condition="'$(ProGpuXlibSourceRuntimeRoot)' == '' And Exists('$(_LibreWpfXlibProGpuRoot)artifacts/progpu-xlib/package')">$(_LibreWpfXlibProGpuRoot)artifacts/progpu-xlib/package</ProGpuXlibSourceRuntimeRoot>
-    <_LibreWpfImportXlibRuntime Condition="'$(_LibreWpfXlibRuntimeImported)' != 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe' Or '$(IsTestProject)' == 'true') And '$(ProGpuXlibSourceRuntimeRoot)' != '' And Exists('$(_LibreWpfXlibProGpuRoot)src/ProGPU.Backend/buildTransitive/ProGPU.Backend.targets')">true</_LibreWpfImportXlibRuntime>
+    <ProGpuWgpuWindowsSourceRuntimeRoot Condition="'$(ProGpuWgpuWindowsSourceRuntimeRoot)' == '' And '$(ProGpuWgpuWindowsRuntimeRoot)' != ''">$(ProGpuWgpuWindowsRuntimeRoot)</ProGpuWgpuWindowsSourceRuntimeRoot>
+    <ProGpuWgpuWindowsSourceRuntimeRoot Condition="'$(ProGpuWgpuWindowsSourceRuntimeRoot)' == '' And Exists('$(_LibreWpfXlibProGpuRoot)artifacts/progpu-wgpu-windows/package')">$(_LibreWpfXlibProGpuRoot)artifacts/progpu-wgpu-windows/package</ProGpuWgpuWindowsSourceRuntimeRoot>
+    <_LibreWpfImportXlibRuntime Condition="'$(_LibreWpfXlibRuntimeImported)' != 'true' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe' Or '$(IsTestProject)' == 'true') And ('$(ProGpuXlibSourceRuntimeRoot)' != '' Or '$(ProGpuWgpuWindowsSourceRuntimeRoot)' != '') And Exists('$(_LibreWpfXlibProGpuRoot)src/ProGPU.Backend/buildTransitive/ProGPU.Backend.targets')">true</_LibreWpfImportXlibRuntime>
   </PropertyGroup>
   <Import Project="$(_LibreWpfXlibProGpuRoot)src/ProGPU.Backend/buildTransitive/ProGPU.Backend.targets"
           Condition="'$(_LibreWpfImportXlibRuntime)' == 'true' And '$(_LibreWpfXlibRuntimeImported)' != 'true'" />
+  <Target Name="ValidateLibreWpfOwnedWindowsSourceRuntime" BeforeTargets="PrepareForBuild"
+          Condition="('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe' Or '$(IsTestProject)' == 'true') And Exists('$(_LibreWpfXlibProGpuRoot)src/ProGPU.Backend/buildTransitive/ProGPU.Backend.Windows.targets') And ('$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'win-arm64' Or ('$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Windows'))))">
+    <Error Condition="'$(ProGpuWgpuWindowsSourceRuntimeRoot)' == ''" Text="The selected ProGPU source requires its exact staged Windows runtime; stage the whole-qualified producer before building this source executable." />
+    <Error Condition="('$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'win-x64') And (!Exists('$(ProGpuWgpuWindowsSourceRuntimeRoot)/win-x64/native/wgpu_native.dll') Or !Exists('$(ProGpuWgpuWindowsSourceRuntimeRoot)/win-x64/native/wgpu-native-windows.json'))" Text="Missing owned win-x64 runtime or producer receipt." />
+    <Error Condition="('$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'win-arm64') And (!Exists('$(ProGpuWgpuWindowsSourceRuntimeRoot)/win-arm64/native/wgpu_native.dll') Or !Exists('$(ProGpuWgpuWindowsSourceRuntimeRoot)/win-arm64/native/wgpu-native-windows.json'))" Text="Missing owned win-arm64 runtime or producer receipt." />
+  </Target>
   <PropertyGroup>
     <_LibreWpfXlibRuntimeImported Condition="'$(_LibreWpfImportXlibRuntime)' == 'true'">true</_LibreWpfXlibRuntimeImported>
   </PropertyGroup>

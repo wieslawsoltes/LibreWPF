@@ -25,3 +25,15 @@ It runs in the existing Linux source-contract CI job, after the original source
 framework test assembly is built. This is source input evidence, not native
 Cocoa popup admission, capture cancellation, precise scrolling or application
 qualification; those remain separate integration work.
+
+The HwndHost keyboard forwarding and HwndSource mnemonic helpers also select the
+frozen input owner before querying modifiers. Portable callbacks use the same
+scoped keyboard snapshot, including control-character classification (Control
+without Alt, and an actual Unicode control character). Native Windows keeps its
+original Shift/Control/Alt queries; text classification keeps its short-circuited
+Control/Alt queries and Win32Exception handling. No Win32 shim key-state export or
+fabricated physical key state is required. The existing source gate includes
+three controls for all eight modifier combinations, nested text callbacks,
+exception restoration and a physical key release during an outer event scope.
+This fixes the reported keyboard entry point in #307; monitor, module-path and
+locale startup contracts in that PR remain independently reviewed work.

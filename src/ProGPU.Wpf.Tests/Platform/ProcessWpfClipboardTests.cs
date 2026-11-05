@@ -21,6 +21,22 @@ public sealed class ProcessWpfClipboardTests
     }
 
     [Fact]
+    public void MacOsClipboardCommandsExchangeTextAsUtf8RegardlessOfTheAppLocale()
+    {
+        // pbcopy/pbpaste use the locale encoding; an app started from Finder has none and gets
+        // MacRoman, which turns "建置開始" into "Âª∫ÁΩÆÈñãÂßã".
+        foreach (var command in new[]
+        {
+            Assert.Single(ProcessWpfClipboard.CreateSetTextStartInfos(WpfClipboardPlatform.MacOS)),
+            Assert.Single(ProcessWpfClipboard.CreateGetTextStartInfos(WpfClipboardPlatform.MacOS))
+        })
+        {
+            Assert.Equal("en_US.UTF-8", command.Environment["LC_ALL"]);
+            Assert.Equal("en_US.UTF-8", command.Environment["LANG"]);
+        }
+    }
+
+    [Fact]
     public void CreateStartInfosForWindowsUsesPowerShellClipboardCommands()
     {
         var setCommand = Assert.Single(ProcessWpfClipboard.CreateSetTextStartInfos(WpfClipboardPlatform.Windows));

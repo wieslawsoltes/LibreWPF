@@ -105,6 +105,7 @@ public class PortableMessageBoxModalTests
         int ownerActivationRequests = 0, ownerMouseReports = 0, ownerDrops = 0;
         int dialogRuns = 0, dialogCloses = 0, dialogDisposals = 0;
         string expectedMessage = string.Empty;
+        (bool CanClose, string? Response)? closeContract = null;
         bool ownerInputAllowed = true;
         bool observingOwnerInput = false;
         // Observe the real source ingress, not renderer-owned hit selection. This
@@ -147,6 +148,7 @@ public class PortableMessageBoxModalTests
             },
             run: _ => throw new InvalidOperationException("MessageBox must not enter the application host loop."),
             releaseDialog: (_, completed) => completed(),
+            requiresSourceFixedCaption: _ => true,
             runDialog: (value, shouldContinue) =>
             {
                 Window dialog = Assert.IsType<Window>(value);
@@ -181,6 +183,36 @@ public class PortableMessageBoxModalTests
                         Assert.Equal(mouseReports, ownerMouseReports);
                         Assert.Equal(0, DeliverDrop(owner));
                         Assert.Equal(drops, ownerDrops);
+
+                        if (closeContract is { } contract)
+                        {
+                            var caption = Enumerable.Range(0, VisualTreeHelper.GetChildrenCount(dialog))
+                                .Select(i => VisualTreeHelper.GetChild(dialog, i))
+                                .OfType<PortableFixedWindowCaption>().Single();
+                            Button captionClose = Assert.Single(caption.Children.OfType<Button>());
+                            Assert.Equal(contract.CanClose, captionClose.IsEnabled);
+                            var responseButtons = ((StackPanel)((Grid)dialog.Content).Children[1])
+                                .Children.OfType<Button>().ToArray();
+                            Assert.Equal(contract.CanClose, responseButtons.Any(button => button.IsCancel));
+                            dialog.Close();
+                            if (contract.CanClose)
+                            {
+                                Assert.True(dialog.IsDisposed);
+                            }
+                            else
+                            {
+                                Assert.False(dialog.IsDisposed);
+                                Assert.True(shouldContinue());
+                                Assert.False(ownerInputAllowed);
+                                SystemCommands.CloseWindow(dialog);
+                                Assert.False(dialog.IsDisposed);
+                                Button response = responseButtons.Single(button => Equals(button.Content, contract.Response));
+                                response.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, response));
+                                Assert.True(dialog.IsDisposed);
+                            }
+                            Assert.False(shouldContinue());
+                            return;
+                        }
 
                         // Click the real generated button. This runs the production
                         // selected-result callback and Window.DialogResult close path.
@@ -231,6 +263,11 @@ public class PortableMessageBoxModalTests
                     catch (Exception exception) { callbackFailure = exception; }
                     finally
                     {
+                        if (!dialog.IsDisposed && closeContract is not null)
+                        {
+                            var response = ((StackPanel)((Grid)dialog.Content).Children[1]).Children.OfType<Button>().First();
+                            response.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, response));
+                        }
                         if (!dialog.IsDisposed) dialog.Close();
                         frame.Continue = false;
                     }
@@ -340,6 +377,28 @@ public class PortableMessageBoxModalTests
             Assert.Equal(6, dialogCloses);
             Assert.Equal(6, dialogDisposals);
             Assert.Equal(1, fallbacks); // A live source dialog takes priority over fallback.
+
+            foreach (var scenario in new[]
+            {
+                (MessageBoxButton.OK, true, (string?)null, MessageBoxResult.OK),
+                (MessageBoxButton.OKCancel, true, (string?)null, MessageBoxResult.Cancel),
+                (MessageBoxButton.YesNo, false, "_No", MessageBoxResult.No),
+                (MessageBoxButton.YesNoCancel, true, (string?)null, MessageBoxResult.Cancel),
+                (MessageBoxButton.AbortRetryIgnore, false, "_Ignore", MessageBoxResult.Ignore),
+                (MessageBoxButton.RetryCancel, true, (string?)null, MessageBoxResult.Cancel),
+                (MessageBoxButton.CancelTryContinue, true, (string?)null, MessageBoxResult.Cancel)
+            })
+            {
+                closeContract = (scenario.Item2, scenario.Item3);
+                Assert.Equal(scenario.Item4, MessageBox.Show(owner, "Close contract", "Close contract", scenario.Item1));
+                Assert.True(ownerInputAllowed);
+                Assert.False(ComponentDispatcher.IsThreadModal);
+                Assert.False(PortableModalInputScope.IsActive);
+                Assert.Empty(owner.OwnedWindows.Cast<Window>());
+            }
+            Assert.Equal(13, dialogRuns);
+            Assert.Equal(13, dialogCloses);
+            Assert.Equal(13, dialogDisposals);
         }
         finally
         {

@@ -170,6 +170,106 @@ do
   done
 done
 
+# Preserve the public multi-SDK composition from issue #310. Web imports .NET
+# targets before LibreWPF's targets, so an evaluation-only or direct SDK import
+# probe cannot replace this fresh package restore and real compiler invocation.
+web_root="${smoke_root}/WebSdkComposition"
+web_project="${web_root}/WebSdkComposition.csproj"
+mkdir "${web_root}"
+cat > "${web_project}" <<EOF
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <Sdk Name="LibreWPF.Sdk" Version="${sdk_package_version}" />
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWpf>false</UseWpf>
+    <ExpectedUseWPF>false</ExpectedUseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.12" />
+  </ItemGroup>
+  <Import Project="DesktopPropertyContract.targets" />
+  <Import Project="WebSdkPackageContract.targets" />
+</Project>
+EOF
+cp "${smoke_source}/DesktopPropertyContract.targets" "${web_root}/DesktopPropertyContract.targets"
+cat > "${web_root}/Program.cs" <<'EOF'
+internal static class Program
+{
+    private static void Main()
+    {
+        _ = typeof(System.Windows.Forms.Form);
+        _ = typeof(System.Drawing.Bitmap);
+        _ = typeof(Microsoft.AspNetCore.Builder.WebApplication);
+        _ = typeof(System.Configuration.ConfigurationManager);
+    }
+}
+EOF
+cat > "${web_root}/WebSdkPackageContract.targets" <<'EOF'
+<Project>
+  <Target Name="ValidateWebSdkPackageComposition" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <_WebSdkAspNetCore Include="@(FrameworkReference)"
+          Condition="'%(FrameworkReference.Identity)' == 'Microsoft.AspNetCore.App'" />
+      <_WebSdkDrawing Include="@(ReferencePath)"
+          Condition="'%(ReferencePath.Filename)' == 'System.Drawing.Common'" />
+    </ItemGroup>
+    <Error Condition="'@(_WebSdkAspNetCore->Count())' != '1'"
+           Text="The Web SDK consumer must retain Microsoft.AspNetCore.App." />
+    <Error Condition="'@(_WebSdkDrawing->Count())' != '1'"
+           Text="The Web SDK consumer must compile against exactly one System.Drawing.Common asset." />
+    <GetAssemblyIdentity AssemblyFiles="@(_WebSdkDrawing)">
+      <Output TaskParameter="Assemblies" ItemName="_WebSdkDrawingIdentity" />
+    </GetAssemblyIdentity>
+    <Error Condition="'%(_WebSdkDrawingIdentity.PublicKeyToken)' != 'c29c9752855ee183'"
+           Text="The Web SDK consumer selected a non-ProGPU compiler Drawing identity: @(_WebSdkDrawingIdentity)." />
+  </Target>
+</Project>
+EOF
+web_properties=("${package_properties[@]}" -p:ManagePackageVersionsCentrally=false
+  -p:RuntimeIdentifier=linux-x64 -p:SelfContained=false)
+NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" restore \
+  "${web_project}" --configfile "${smoke_config}" --force --no-cache \
+  "${web_properties[@]}"
+if ! cmp -s \
+  "${sdk_package_source}/LibreWPF.Sdk.${sdk_package_version}.nupkg" \
+  "${smoke_packages}/librewpf.sdk/${sdk_cache_version}/librewpf.sdk.${sdk_cache_version}.nupkg"; then
+  echo "Web SDK composition did not restore the exact staged LibreWPF.Sdk package." >&2
+  exit 1
+fi
+NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" build \
+  "${web_project}" --configuration Release --no-restore "${web_properties[@]}"
+web_publish="${web_root}/published"
+NUGET_PACKAGES="${smoke_packages}" "${dotnet_command}" publish \
+  "${web_project}" --configuration Release --no-build --no-restore \
+  --output "${web_publish}" "${web_properties[@]}"
+python3 - "${web_root}" "${web_publish}" "${smoke_packages}" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+root, published, packages = map(Path, sys.argv[1:])
+runtime = json.loads((published / "WebSdkComposition.runtimeconfig.json").read_text())["runtimeOptions"]
+frameworks = runtime.get("frameworks", [runtime["framework"]] if "framework" in runtime else [])
+assert {item["name"] for item in frameworks} == {"Microsoft.NETCore.App", "Microsoft.AspNetCore.App"}, \
+    "Web composition must publish Core and AspNetCore without WindowsDesktop."
+assets = json.loads((root / "obj/project.assets.json").read_text())
+owners = [key for key in assets["libraries"] if key.split("/")[0].lower() == "progpu.system.drawing.common"]
+assert len(owners) == 1, "One owned Drawing package must supply the published assembly."
+owner = owners[0]
+asset = "lib/net10.0/System.Drawing.Common.dll"
+original = packages / assets["libraries"][owner]["path"] / asset
+assert original.read_bytes() == (published / "System.Drawing.Common.dll").read_bytes(), \
+    "Web composition changed the selected package's Drawing assembly."
+deps = json.loads((published / "WebSdkComposition.deps.json").read_text())
+selected = [(library, path) for target in deps["targets"].values()
+            for library, entry in target.items()
+            for category in ("runtime", "runtimeTargets") for path in entry.get(category, {})
+            if Path(path).name == "System.Drawing.Common.dll"]
+assert selected == [(owner, asset)], "Published Drawing bytes and dependency ownership must agree."
+PY
+
 transitive_properties=()
 for package_property in "${package_properties[@]}"
 do

@@ -35,7 +35,10 @@ public sealed class ProcessWpfLauncherTests
         Assert.IsType<SilkNetWpfCursorService>(services.Cursors);
         Assert.IsType<QueuedWpfDispatcherService>(services.Dispatcher);
         Assert.IsType<SilkNetWpfDragDropService>(services.DragDrop);
-        Assert.IsType<ProcessWpfFileDialogService>(services.FileDialogs);
+        if (OperatingSystem.IsMacOS())
+            Assert.IsType<MacOsWpfFileDialogService>(services.FileDialogs);
+        else
+            Assert.IsType<ProcessWpfFileDialogService>(services.FileDialogs);
         Assert.IsType<ProcessWpfLauncher>(services.Launcher);
         Assert.IsType<ProcessWpfMessageBoxService>(services.MessageBoxes);
         Assert.IsType<SilkNetWpfMonitorService>(services.Monitors);

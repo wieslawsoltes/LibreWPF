@@ -2,6 +2,7 @@
 """Execute the SDK's native shim target against Windows and native host RIDs."""
 
 import argparse
+import ctypes
 import hashlib
 import os
 from pathlib import Path
@@ -79,6 +80,62 @@ class Win32CompatTargetTests(unittest.TestCase):
             digest = hashlib.sha256(data).digest()
             self.assertTrue(all(hashlib.sha256(file.read_bytes()).digest() == digest for file in files))
             self.assertTrue((output / ("dwmapi.dll" if macos else "dwmapi.dll.so")).exists())
+
+            # Resolve the actual third-party P/Invoke entry point from the SDK's
+            # built user32 payload, before any native window host is created.
+            user32 = ctypes.CDLL(str(output / ("user32.dll" if macos else "user32.dll.so")))
+            get_interval = user32.GetDoubleClickTime
+            get_interval.argtypes = []
+            get_interval.restype = ctypes.c_uint32
+            actual = get_interval()
+            self.assertGreaterEqual(actual, 1)
+            self.assertLessEqual(actual, 5000)
+            if macos:
+                # Independent public AppKit query; do not change system settings
+                # or create a window to manufacture a reference value.
+                ctypes.CDLL("/System/Library/Frameworks/AppKit.framework/AppKit")
+                objc = ctypes.CDLL("/usr/lib/libobjc.A.dylib")
+                objc.objc_getClass.argtypes = [ctypes.c_char_p]
+                objc.objc_getClass.restype = ctypes.c_void_p
+                objc.sel_registerName.argtypes = [ctypes.c_char_p]
+                objc.sel_registerName.restype = ctypes.c_void_p
+                objc.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+                objc.objc_msgSend.restype = ctypes.c_double
+                seconds = objc.objc_msgSend(objc.objc_getClass(b"NSEvent"),
+                                           objc.sel_registerName(b"doubleClickInterval"))
+                self.assertEqual(min(5000, round(seconds * 1000)) or 500, actual)
+            else:
+                self.assertEqual(500, actual)
+
+    @unittest.skipUnless(platform.system() in ("Darwin", "Linux") and shutil.which("cc"),
+                         "The native conversion control requires a C compiler.")
+    def test_interval_conversion_retains_rounding_fallback_and_win32_bound(self):
+        source = REPO_ROOT / "packaging/ProGPU.Wpf.Sdk/targets/ProGPU.Wpf.Sdk.Win32Compat.c"
+        with tempfile.TemporaryDirectory(prefix="librewpf-click-interval-") as directory:
+            root = Path(directory)
+            control = root / "control.c"
+            control.write_text('#include <assert.h>\n#include "' + str(source) + '"\n' + r'''
+int main(void)
+{
+    assert(progpu_double_click_milliseconds(0.001) == 1);
+    assert(progpu_double_click_milliseconds(0.0015) == 2);
+    assert(progpu_double_click_milliseconds(0.0025) == 2);
+    assert(progpu_double_click_milliseconds(0.0625) == 62);
+    assert(progpu_double_click_milliseconds(0.1875) == 188);
+    assert(progpu_double_click_milliseconds(5.001) == 5000);
+    assert(progpu_double_click_milliseconds(0.0) == 500);
+    assert(progpu_double_click_milliseconds(-1.0) == 500);
+    assert(progpu_double_click_milliseconds(NAN) == 500);
+    assert(progpu_double_click_milliseconds(INFINITY) == 500);
+    return 0;
+}
+''', encoding="utf-8")
+            executable = root / "control"
+            result = subprocess.run(["cc", "-O2", str(control), "-o", str(executable)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            result = subprocess.run([str(executable)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
