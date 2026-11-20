@@ -24,12 +24,24 @@ public sealed class SilkNetWpfWindowEventService : IWpfWindowEventService
 
         Action<bool> focusChanged = isFocused => OnWindowEventReceived(window, CreateFocusChangedEvent(isFocused));
         Action<string[]> fileDrop = files => OnWindowEventReceived(window, CreateFileDropEvent(files));
+        var lastPosition = window.Position;
         Action<Vector2D<int>> move = position =>
         {
+            lastPosition = position;
             OnWindowEventReceived(window, CreateWindowPositionChangingEvent(position.X, position.Y));
             OnWindowEventReceived(window, CreateWindowPositionChangedEvent(position.X, position.Y));
         };
-        Action<Vector2D<int>> resize = size => OnWindowEventReceived(window, CreateWindowSizeChangedEvent(size.X, size.Y));
+        Action<Vector2D<int>> resize = size =>
+        {
+            // Zooming/maximizing moves the frame origin but some platforms raise only Resize.
+            var position = window.Position;
+            if (position != lastPosition)
+            {
+                move(position);
+            }
+
+            OnWindowEventReceived(window, CreateWindowSizeChangedEvent(size.X, size.Y));
+        };
 
         window.FocusChanged += focusChanged;
         window.FileDrop += fileDrop;
