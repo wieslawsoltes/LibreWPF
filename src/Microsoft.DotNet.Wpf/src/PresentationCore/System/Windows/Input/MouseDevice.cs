@@ -940,6 +940,21 @@ namespace System.Windows.Input
 
                 //ProcessInput has a linkdemand
                 _inputManager.ProcessInput(inputReportEventArgs);
+                return;
+            }
+
+            // There is no usable active source to re-hit-test against - which is exactly the
+            // window a teardown opens up (a rapid source/design/close switch: the element that
+            // was under the cursor is leaving the tree, and this queued re-evaluation is left
+            // with nothing to hit-test against). This method used to return silently here,
+            // leaving that element stuck with IsMouseOver==true and - the part that actually
+            // hurts - never raising MouseLeave. Any hover timer armed against it (AvalonEdit's
+            // MouseHoverLogic, tooltips, ...) then stayed live and fired later against a
+            // disposed element. Nothing can be mouse-over when there is no active source, so
+            // clear it through the ordinary path and let MouseLeave stop those timers.
+            if (_mouseOver != null)
+            {
+                ChangeMouseOver(null, Environment.TickCount);
             }
         }
 
