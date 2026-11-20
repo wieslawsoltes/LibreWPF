@@ -3998,7 +3998,7 @@ public sealed partial class ProGpuWpfWindowHostTests
     }
 
     [Fact]
-    public void NativePopupLocalDiagnosticInputUsesPlatformCoordinateContract()
+    public void NativePopupLocalDiagnosticInputKeepsMacPopupLocalCoordinates()
     {
         var input = new WpfInputEventArgs(
             WpfInputEventKind.MouseDown,
@@ -4008,13 +4008,13 @@ public sealed partial class ProGpuWpfWindowHostTests
             modifiers: WpfInputModifiers.Control);
 
         WpfInputEventArgs cocoa = WpfPortablePopupBridge.CreateNativeDiagnosticInput(
-            coordinatesAreOwnerRelative: true,
+            coordinatesAreOwnerRelative: false,
             input,
             popupOwnerX: 54,
             popupOwnerY: 80);
-        Assert.NotSame(input, cocoa);
-        Assert.Equal(72, cocoa.X);
-        Assert.Equal(92, cocoa.Y);
+        Assert.Same(input, cocoa);
+        Assert.Equal(18, cocoa.X);
+        Assert.Equal(12, cocoa.Y);
         Assert.Equal(input.Kind, cocoa.Kind);
         Assert.Equal(input.Button, cocoa.Button);
         Assert.Equal(input.Modifiers, cocoa.Modifiers);
